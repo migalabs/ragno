@@ -33,6 +33,7 @@ func main() {
 		EnableBashCompletion: true, 
 		Commands: []*cli.Command{
 			cmd.RunCommand,
+			cmd.Discv4Cmd,
 		},
 	}
 	
@@ -42,6 +43,7 @@ func main() {
 		log.Error(err)
 		os.Exit(1)
 	}
+	os.Exit(0)
 }
 
 

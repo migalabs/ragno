@@ -2,9 +2,7 @@ package crawler
 
 import (
 	"context"
-
-	"github.com/cortze/ragno/pkg/config"
-
+	
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,7 +23,7 @@ type Crawler struct {
 }
 
 
-func New(ctx context.Context, conf config.CrawlerRunConf) (*Crawler, error) {
+func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create a private key
 
 	// create metrics module

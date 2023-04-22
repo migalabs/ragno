@@ -1,4 +1,4 @@
-package config
+package crawler
 
 import (
 	// "os"
@@ -37,31 +37,24 @@ func NewDefaultRun() *CrawlerRunConf {
 
 // Only considered the configuration for the Execution Layer's crawler -> RunCommand
 func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
-	
 	if ctx.IsSet("log-level") {
 		c.LogLevel = ctx.String("log-level")
 	}
-
 	if ctx.IsSet("db-endpoint") {
 		c.LogLevel = ctx.String("db-endpoint")
 	}
-
 	if ctx.IsSet("ip") {
 		c.HostIP = ctx.String("ip")
 	}
-
 	if ctx.IsSet("port") {
 		c.HostPort = ctx.Int("port")
 	}
-
 	if ctx.IsSet("metrics-ip") {
 		c.MetricsIP = ctx.String("metrics-ip")
 	}
-
 	if ctx.IsSet("metrics-port") {
 		c.MetricsPort = ctx.Int("metrics-port")
 	}
-	
 	return nil
 }
 

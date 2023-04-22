@@ -5,8 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cortze/ragno/pkg/crawler"
-	"github.com/cortze/ragno/pkg/config"
+	"github.com/cortze/ragno/crawler"
 
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
@@ -23,19 +22,19 @@ var RunCommand = &cli.Command{
 			Name: "log-level",
 			Usage: "Define the log level of the logs it will display on the terminal",
 			EnvVars: []string{"RAGNO_LOG_LEVEL"},
-			DefaultText: config.DefaultLogLevel,
+			DefaultText: crawler.DefaultLogLevel,
 		},
 		&cli.StringFlag{
 			Name: "db-endpoint",
 			Usage: "Endpoint of the database that where the results of the crawl will be stored (needst to be initialized from before)",
 			EnvVars: []string{"RAGNO_DB_ENDPOINT"},
-			DefaultText: config.DefaultDBEndpoint,
+			DefaultText: crawler.DefaultDBEndpoint,
 		},
 		&cli.StringFlag{
 			Name: "ip",
 			Usage: "IP that will be assigned to the host",
 			EnvVars: []string{"RAGNO_HOST_IP"},
-			DefaultText: config.DefaultHostIP,
+			DefaultText: crawler.DefaultHostIP,
 		},
 		&cli.IntFlag{
 			Name: "port",
@@ -46,7 +45,7 @@ var RunCommand = &cli.Command{
 			Name: "metrics-ip",
 			Usage: "IP where the metrics of the crawler will be shown into",
 			EnvVars: []string{"RAGNO_METRICS_IP"},
-			DefaultText: config.DefaultMetricsIP,
+			DefaultText: crawler.DefaultMetricsIP,
 		},
 		&cli.IntFlag{
 			Name: "metrics-port",
@@ -58,16 +57,16 @@ var RunCommand = &cli.Command{
 
 
 func RunRagno(ctx *cli.Context) error {
-	// create a default configuration
+	// create a default crawler.ration
 
-	conf := config.NewDefaultRun()
+	conf := crawler.NewDefaultRun()
 	err := conf.Apply(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error applying the received configuration")
 	}
 
 	// create a new crawler from the given configuration1
-	ragno, err := crawler.New(ctx.Context, *conf)
+	ragno, err := crawler.NewCrawler(ctx.Context, *conf)
 	if err != nil {
 		return errors.Wrap(err, "error initializing the crawler")
 	}	

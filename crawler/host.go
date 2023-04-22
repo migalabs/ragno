@@ -1,16 +1,13 @@
-package host
+package crawler
 
 
 import (
 	"context"
 
-	"github.com/cortze/ragno/pkg/ethnode"
-
-
-	"github.com/ethereum/go-ethereum/p2p/node"
-	"github.com/ethereum/go-ethereum/p2p/rplx"
+	//"github.com/ethereum/go-ethereum/p2p/enode"
+	//"github.com/ethereum/go-ethereum/p2p/rplx"
 	
-	log "github.com/sirupsen/logrus"
+	// "github.com/sirupsen/logrus"
 )
 
 
@@ -19,7 +16,7 @@ type ELHost struct {
 	ctx context.Context	
 
 	// map of connections per remote peers
-	peers map[node.ID]ethnode.Client
+	//peers map[node.ID]ethnode.Client
 }
 
 func New() (*ELHost) {
