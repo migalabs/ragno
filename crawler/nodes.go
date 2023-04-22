@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"fmt"
 	"time"
 	"sync"
 
@@ -24,7 +25,7 @@ func NewEnodeSet() *EnodeSet {
 
 func (s *EnodeSet) AddNode(n *EthNode) error {
 	if !n.IsValid() {
-		return errors.New("attempt to persist non-valid node")
+		return errors.New(fmt.Sprintf("attempt to persist non-valid node %+v", n))
 	}
 	s.m.Lock()
 	defer s.m.Unlock()
@@ -66,6 +67,7 @@ type EthNode struct {
 	UDP int
 	TCP int
 	Pubkey string
+	Score int
 	Seq uint64
 	Record *enr.Record
 }
@@ -120,7 +122,7 @@ func (n *EthNode) Update(en *EthNode) {
 }
 
 func(n *EthNode) IsValid() bool {
-	return (len(n.ID) > 0) && (len(n.IP) > 0) && (n.TCP > 0) && (n.UDP > 0) 
+	return (len(n.ID) > 0) && (len(n.IP) > 0) && (n.UDP > 0) 
 }
 
 

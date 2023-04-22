@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"strconv"
 
 	"github.com/cortze/ragno/crawler"
 
@@ -131,6 +132,13 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 	if err != nil {
 		return err
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"log-level": discv4Configuration.logLevel,
+		"ip": udpAddr.IP.String(),
+		"port": strconv.Itoa(udpAddr.Port),
+		"output-file": discv4Configuration.outputFile,
+	}).Info("launching rango discv4")
 	// compose the nodeset
 	nodeSet := crawler.NewEnodeSet()
 	closeC := make(chan struct{})
