@@ -215,6 +215,7 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 type CsvExporter struct {
 	fileName string 
 	f *os.File
+	headers []string
 }
 
 func NewCsvExporter(f string) (*CsvExporter, error) {
@@ -229,9 +230,8 @@ func NewCsvExporter(f string) (*CsvExporter, error) {
 	csve := &CsvExporter{
 		fileName: f,
 		f: csvF,
+		headers: headers,
 	}
-	headerRow := csve.composeRow(headers)
-	err = csve.writeLine(headerRow)
 	return csve, err
 }
 
@@ -253,7 +253,21 @@ func (c *CsvExporter) writeLine(row string) error {
 } 
 
 func (c *CsvExporter) Export(peers []*crawler.EthNode) error {
-		
+	// reset index in the file
+	c.f.Seek(0,0)
+	defer c.f.Sync()
+	headerRow := c.composeRow(c.headers)
+	err := c.writeLine(headerRow)
+	if err != nil {
+		return nil
+	}
+	for _, n := range peers {
+		row := c.composeRow(n.ComposeCSVItems()) 
+		err = c.writeLine(row)
+		if err != nil {
+			return nil
+		}
+	}
 	return nil
 }
 

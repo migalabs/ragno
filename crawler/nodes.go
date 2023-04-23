@@ -2,8 +2,9 @@ package crawler
 
 import (
 	"fmt"
-	"time"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -123,6 +124,20 @@ func (n *EthNode) Update(en *EthNode) {
 
 func(n *EthNode) IsValid() bool {
 	return (len(n.ID) > 0) && (len(n.IP) > 0) && (n.UDP > 0) 
+}
+
+func (n *EthNode) ComposeCSVItems() []string {
+	items := make([]string, 0, 9)
+	items = append(items, n.ID)
+	items = append(items, n.FirstT.String())
+	items = append(items, n.LastT.String())
+	items = append(items, n.IP)
+	items = append(items, strconv.Itoa(n.TCP))
+	items = append(items, strconv.Itoa(n.UDP))
+	items = append(items, strconv.Itoa(int(n.Seq)))
+	items = append(items, n.Pubkey)
+	items = append(items, n.Node.String())
+	return items 
 }
 
 

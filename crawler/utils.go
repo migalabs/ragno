@@ -34,7 +34,7 @@ var (
 	Debug Llvl = "debug"
 	Info Llvl = "info"
 	Warn Llvl = "warn"
-	Error Llvl = "error"
+	ErrorL Llvl = "error"
 )
 
 func ParseLogLevel(level string) logrus.Level {
@@ -48,7 +48,7 @@ func ParseLogLevel(level string) logrus.Level {
 		lvl = logrus.InfoLevel
 	case Warn:
 		lvl = logrus.WarnLevel
-	case Error:
+	case ErrorL:
 		lvl = logrus.ErrorLevel
 	default:
 		lvl = logrus.InfoLevel
