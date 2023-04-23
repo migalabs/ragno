@@ -141,6 +141,15 @@ func (n *EthNode) ComposeCSVItems() []string {
 }
 
 
+func ParseStringToEnr(enr string) *enode.Node {
+	// parse the Enr
+	remoteEnr, err := enode.Parse(enode.ValidSchemes, enr)
+	if err != nil {
+		remoteEnr = enode.MustParseV4(enr)
+	}
+	return remoteEnr
+}
+
 
 
 

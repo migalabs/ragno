@@ -34,6 +34,7 @@ func main() {
 		Commands: []*cli.Command{
 			cmd.RunCommand,
 			cmd.Discv4Cmd,
+			cmd.ConnectCmd,
 		},
 	}
 	
