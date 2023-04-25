@@ -1,7 +1,7 @@
 package db
 
 import (
-	pgx	"github.com/jackc/pgx/v5"
+	//pgx	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 )
 
@@ -38,6 +38,6 @@ func (d *Database) dropNodeTables() error {
 	return err
 }
 
-func (d *Database) InsertElNode(node *ElNode) error {
-
+func (d *Database) InsertElNode() error {
+	return nil
 }

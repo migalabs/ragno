@@ -111,12 +111,18 @@ func (d *Database) launchPersister(idx int) {
 			batchTicker.Reset(flushTime)
 		}
 	}
-
-	return 
 }
 
 // One function with the logic to persist whatever
 
+type QueryType uint8
+
+const(
+	InsertEnr QueryType = iota
+	InsertHostInfo
+	InsertNetInfo
+	InsertChainState
+)
 
 type Persistable struct {
 	Type QueryType

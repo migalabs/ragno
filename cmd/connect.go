@@ -1,21 +1,12 @@
 package cmd
 
 import (
-	"crypto/ecdsa"
 	"fmt"
-	"math/big"
-	"net"
 	"time"
 
 	"github.com/cortze/ragno/crawler"
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest" 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/forkid"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p"
+
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/ethereum/go-ethereum/p2p/rlpx"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
@@ -60,18 +51,31 @@ var ConnectCmd = &cli.Command{
 
 func connect(ctx *cli.Context) error {
 	logrus.SetLevel(crawler.ParseLogLevel(connectOptions.lvl))
+	
+	host, err := crawler.NewHost(
+		ctx.Context,
+		"0.0.0.0",
+		9045,
+		// default configuration so far
+	) 
+	if err != nil {
+		logrus.Error("failed to create host:",)
+		return err
+	}
+
 	if connectOptions.enr == "" && connectOptions.file == "" {
 		logrus.Warn("no Enr or File was provided")
 		fmt.Println(connectOptions)
 		return nil
 	}
+
 	// read the number of enrs 
 	connectPeers := make([]*enode.Node, 0)
 	if connectOptions.enr != "" {
 		rEnr := crawler.ParseStringToEnr(connectOptions.enr)
 		connectPeers = append(connectPeers, rEnr)
 	}
-	
+
 	// read the enrs from the given csv file
 	if connectOptions.file != "" {
 		csvImporter, err := crawler.NewCsvImporter(connectOptions.file)
@@ -85,21 +89,20 @@ func connect(ctx *cli.Context) error {
 		}
 	}
 	
-	connecter:	
-	// connect the node (whole sequence)
-	privKey, _ := crypto.GenerateKey()
-	
+connecter:	
+	// connect and identify the peer
 	logrus.Infof("attempting to connect %d nodes", len(connectPeers))
 	for _, remoteNode := range connectPeers {
 		logrus.Info("connecting to node", remoteNode)
-		hinfo := connectNode(remoteNode, privKey)
+		hinfo := host.Connect(remoteNode)
 		if hinfo.Error != nil {
 			logrus.Error("failed to connect %s", remoteNode.String())
 			continue
 		}
-
 		logrus.Infof("remoteNode %s successfully connected:", remoteNode.String())
 		fmt.Println("ID:", remoteNode.ID().String())
+		fmt.Println("IP:", crawler.PubkeyToString(remoteNode.Pubkey()))
+		fmt.Println("Seq:", remoteNode.Seq())
 		fmt.Println("IP:", remoteNode.IP())
 		fmt.Println("TCP:", remoteNode.TCP())
 		fmt.Println("Client:", hinfo.ClientName)
@@ -108,61 +111,5 @@ func connect(ctx *cli.Context) error {
 		fmt.Println("Error:", hinfo.Error)
 	}
 	return nil
-}
-
-
-func connectNode(remoteN *enode.Node, priv *ecdsa.PrivateKey) ethtest.HandshakeDetails {
-	conn, details := dial(remoteN, priv)
-	if details.Error != nil {
-		return details
-	}
-	defer conn.Close()
-	return details
-}
-
-func dial(n *enode.Node, priv *ecdsa.PrivateKey) (ethtest.Conn, ethtest.HandshakeDetails) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP(),n.TCP())); 
-	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}
-	}
-	conn:= ethtest.Conn{
-		Conn: rlpx.NewConn(netConn, n.Pubkey()),
-	}
-
-	_, err = conn.Handshake(priv)
-	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: err} 
-	}
-
-
-	details := makeHelloHandshake(&conn, priv)	
-	if details.Error != nil {
-		conn.Close()
-		return conn, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to initiate Handshake with node")}
-	}
-	return conn, details
-}
-
-func makeHelloHandshake(conn *ethtest.Conn, priv *ecdsa.PrivateKey) ethtest.HandshakeDetails {
-	ourCaps := []p2p.Cap{
-		{Name: "eth", Version: 66},
-		{Name: "eth", Version: 67},
-		{Name: "eth", Version: 68},
-	}
-	highestProtoVersion := uint(68)
-	return conn.DetailedHandshake(priv, ourCaps, highestProtoVersion)
-}
-
-
-type HostInfo struct {
-	IP string 
-	Port int 
-	ClientType string 
-	NetworkID uint64
-	Capabilities []p2p.Cap
-	ForkID forkid.ID
-	Blockheight     string
-	TotalDifficulty *big.Int
-	HeadHash        common.Hash
 }
 
