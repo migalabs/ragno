@@ -35,6 +35,7 @@ type Host struct {
 	caps []p2p.Cap
 	highestProtoVersion uint
 
+	chainStatus ChainStatus
 	// related services
 	db *db.Database
 
@@ -174,3 +175,7 @@ func GetPublicIP() (net.IP, error) {
 	return lclAddr.IP, nil
 }
 
+type ChainStatus struct {
+	
+
+}
