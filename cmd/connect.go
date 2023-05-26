@@ -93,7 +93,7 @@ connecter:
 	// connect and identify the peer
 	logrus.Infof("attempting to connect %d nodes", len(connectPeers))
 	for _, remoteNode := range connectPeers {
-		logrus.Info("connecting to node", remoteNode)
+		logrus.Info("connecting to node: ", remoteNode)
 		hinfo := host.Connect(remoteNode)
 		if hinfo.Error != nil {
 			logrus.Error("failed to connect %s", remoteNode.String())
