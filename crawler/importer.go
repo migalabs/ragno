@@ -38,7 +38,8 @@ func NewCsvImporter(p string) (*CSVImporter, error) {
 		if len(cols) > 0 {
 			enr_str := cols[len(cols)-1]
 			enr := ParseStringToEnr(enr_str)
-			importer.rows = append(importer.rows, cols)
+			usefull_cols := []string{cols[1], cols[2], cols[8]} 
+			importer.rows = append(importer.rows, usefull_cols)
 			importer.items = append(importer.items, enr)
 		}
 	}

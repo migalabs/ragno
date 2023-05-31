@@ -18,21 +18,21 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 )
 
-const(
-	MaxRetries int = 3
-	GraceTime time.Duration = 10*time.Second	
-	DefaultTimeout time.Duration = 10*time.Second
+const (
+	MaxRetries     int           = 3
+	GraceTime      time.Duration = 10 * time.Second
+	DefaultTimeout time.Duration = 10 * time.Second
 )
 
 type Host struct {
 	// Basic info about the host
-	ctx context.Context	
+	ctx context.Context
 
 	dialer net.Dialer
-	privk *ecdsa.PrivateKey
+	privk  *ecdsa.PrivateKey
 
 	// HandshakeDetails
-	caps []p2p.Cap
+	caps                []p2p.Cap
 	highestProtoVersion uint
 
 	chainStatus ChainStatus
@@ -43,7 +43,7 @@ type Host struct {
 	//peers map[node.ID]ethnode.Client
 }
 
-type HostOption func (*Host) error
+type HostOption func(*Host) error
 
 func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Host, error) {
 	ad := fmt.Sprintf("%s:%d", ip, port)
@@ -56,7 +56,7 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 	h := &Host{
 		ctx: ctx,
 		dialer: net.Dialer{
-			Timeout: DefaultTimeout,
+			Timeout:   DefaultTimeout,
 			LocalAddr: addr,
 		},
 		privk: newPrivk,
@@ -71,9 +71,9 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 		err := opt(h)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create host")
-		}	
+		}
 	}
-	return h, nil 
+	return h, nil
 }
 
 // overrides the the new key with a custom one (to have the same node_id)
@@ -87,7 +87,7 @@ func WithPrivKey(privk *ecdsa.PrivateKey) HostOption {
 // TODO: maybe not the best thing
 func WithDatabase(db *db.Database) HostOption {
 	return func(h *Host) error {
-		h.db = db 
+		h.db = db
 		return nil
 	}
 }
@@ -105,7 +105,7 @@ func WithHighestProtoVersion(version int) HostOption {
 	return func(h *Host) error {
 		h.highestProtoVersion = uint(version)
 		return nil
-	} 
+	}
 }
 
 // --- host related methods ---
@@ -122,26 +122,26 @@ func (h *Host) Connect(remoteN *enode.Node) ethtest.HandshakeDetails {
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
 func (h *Host) dial(n *enode.Node) (ethtest.Conn, ethtest.HandshakeDetails) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP(),n.TCP())); 
+	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP(), n.TCP()))
 	if err != nil {
 		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}
 	}
-	conn:= ethtest.Conn{
+	conn := ethtest.Conn{
 		Conn: rlpx.NewConn(netConn, n.Pubkey()),
 	}
 	_, err = conn.Handshake(h.privk)
 	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: err} 
+		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: err}
 	}
-	details := h.makeHelloHandshake(&conn)	
+	details := h.makeHelloHandshake(&conn)
 	if details.Error != nil {
 		conn.Close()
-		return conn, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to initiate Handshake with node")}
+		return conn, ethtest.HandshakeDetails{Error: errors.Wrap(details.Error, "unable to initiate Handshake with node")}
 	}
 	return conn, details
 }
 
-// makeHelloHandshake makes the first handshake (using the method from @cortze 's fork) to identify 
+// makeHelloHandshake makes the first handshake (using the method from @cortze 's fork) to identify
 // the client name and capabilities
 func (h *Host) makeHelloHandshake(conn *ethtest.Conn) ethtest.HandshakeDetails {
 	return conn.DetailedHandshake(h.privk, h.caps, h.highestProtoVersion)
@@ -149,9 +149,9 @@ func (h *Host) makeHelloHandshake(conn *ethtest.Conn) ethtest.HandshakeDetails {
 
 /*
 type HostInfo struct {
-	IP string 
-	Port int 
-	ClientType string 
+	IP string
+	Port int
+	ClientType string
 	NetworkID uint64
 	Capabilities []p2p.Cap
 	ForkID forkid.ID
@@ -176,6 +176,4 @@ func GetPublicIP() (net.IP, error) {
 }
 
 type ChainStatus struct {
-	
-
 }

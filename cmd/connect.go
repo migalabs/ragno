@@ -96,9 +96,18 @@ func connect(ctx *cli.Context) error {
 	// read the number of enrs
 	connectPeers := make([]*enode.Node, 0)
 	connectPeers_info := make([][]string, 0)
+
 	if connectOptions.enr != "" {
 		rEnr := crawler.ParseStringToEnr(connectOptions.enr)
 		connectPeers = append(connectPeers, rEnr)
+
+		currentTime := time.Now()
+		// Format the time according to the desired layout
+		layout := "2006-01-02 15:04:05.000000 -0700 MST m=+1500.000000000"
+		timeString := currentTime.Format(layout)
+		info := []string{timeString, timeString, connectOptions.enr}
+
+		connectPeers_info = append(connectPeers_info, info)
 	}
 
 	// read the enrs from the given csv file
@@ -123,8 +132,8 @@ connecter:
 		logrus.Info("connecting to: ", remoteNode)
 		hinfo := host.Connect(remoteNode)
 		if hinfo.Error != nil {
+			logrus.Error(hinfo.Error)
 			logrus.Error(`couldn't connect to:`, remoteNode.String())
-			continue
 		}
 		// logrus.Infof("remoteNode %s successfully connected:", remoteNode.String())
 		// fmt.Println("ID:", remoteNode.ID().String())
