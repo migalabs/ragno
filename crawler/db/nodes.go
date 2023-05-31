@@ -2,23 +2,34 @@ package db
 
 import (
 	//pgx	"github.com/jackc/pgx/v5"
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/pkg/errors"
 )
-
 
 func (d *Database) createNodeTables() error {
 	_, err := d.con.Exec(
 		d.ctx,
 		`
-		CREATE IF NOT EXISTS eth_el_nodes (
+		CREATE TABLE IF NOT EXISTS our_eth_el_nodes (
 			id INT GENERATED ALWAYS AS IDENTITY,
 			node_id TEXT NOT NULL,
 			peer_id TEXT NOT NULL,
-			first_seen TIMESTAMPZ NOT NULL,
-			last_seen TIMESTAMPZ NOT NULL,
-			
+			first_seen TIMESTAMP NOT NULL,
+			last_seen TIMESTAMP NOT NULL,
+			public_key TEXT NOT NULL,
+			enr TEXT NOT NULL,
+			seq_number TEXT NOT NULL,
+			ip TEXT NOT NULL,
+			tcp TEXT NOT NULL,
+			client_name TEXT NOT NULL,
+			capabilities TEXT NOT NULL,
+			software_info TEXT NOT NULL,
+
 			PRIMARY KEY (node_id)
-		)
+		);
 		`,
 	)
 	if err != nil {
@@ -26,7 +37,7 @@ func (d *Database) createNodeTables() error {
 	}
 
 	return nil
-} 
+}
 
 func (d *Database) dropNodeTables() error {
 	_, err := d.con.Exec(
@@ -38,6 +49,59 @@ func (d *Database) dropNodeTables() error {
 	return err
 }
 
-func (d *Database) InsertElNode() error {
+func (d *Database) Void() string {
+	return "nil"
+}
+
+func (d *Database) InsertElNode(remoteNode *enode.Node, info []string, hinfo ethtest.HandshakeDetails, pubKey string) error {
+	insert_query := fmt.Sprintf(
+		`
+		INSERT INTO eth_el_nodes (
+			node_id,
+			peer_id,
+			first_seen,
+			last_seen,
+			public_key,
+			enr,
+			seq_number,
+			ip,
+			tcp,
+			client_name,
+			capabilities,
+			software_info
+		)
+		VALUES (
+			'%s',
+			'%s',
+			TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.US TZHTZM "CEST"'),
+			TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.US TZHTZM "CEST"'),
+			'%s',
+			'%s',
+			'%d',
+			'%s',
+			'%d',
+			'%s',
+			'%s',
+			'%d'
+		);
+		`,
+		remoteNode.ID().String(),
+		"0",
+		info[1],
+		info[2],
+		pubKey,
+		info[8],
+		remoteNode.Seq(),
+		remoteNode.IP(),
+		remoteNode.TCP(),
+		hinfo.ClientName,
+		hinfo.Capabilities,
+		hinfo.SoftwareInfo,
+	)
+
+	_, err := d.con.Exec(d.ctx, insert_query)
+	if err != nil {
+		return errors.Wrap(err, "Unable to save node into db")
+	}
 	return nil
 }
