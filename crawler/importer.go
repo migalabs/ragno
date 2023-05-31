@@ -11,12 +11,14 @@ import (
 // for now only supports list of enr so far
 type CSVImporter struct {
 	path  string
+	rows  [][]string
 	items []*enode.Node
 }
 
 func NewCsvImporter(p string) (*CSVImporter, error) {
 	importer := &CSVImporter{
 		path:  p,
+		rows:  make([][]string, 0),
 		items: make([]*enode.Node, 0),
 	}
 
@@ -36,6 +38,7 @@ func NewCsvImporter(p string) (*CSVImporter, error) {
 		if len(cols) > 0 {
 			enr_str := cols[len(cols)-1]
 			enr := ParseStringToEnr(enr_str)
+			importer.rows = append(importer.rows, cols)
 			importer.items = append(importer.items, enr)
 		}
 	}
@@ -45,4 +48,8 @@ func NewCsvImporter(p string) (*CSVImporter, error) {
 
 func (i *CSVImporter) Items() []*enode.Node {
 	return i.items
+}
+
+func (i *CSVImporter) Infos() [][]string{
+	return i.rows
 }
