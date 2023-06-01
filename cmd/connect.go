@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cortze/ragno/crawler"
 	"github.com/cortze/ragno/crawler/db"
 
+	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -70,7 +72,7 @@ func connect(ctx *cli.Context) error {
 	conn_str := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", user_name, password, postrgres_host, port, db_name)
 
 	// persister and batchsize ????
-	db_manager, err := db.New(ctx.Context, conn_str, 1, 5)
+	db_manager, err := db.New(ctx.Context, conn_str, 10, 5)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return err
@@ -128,31 +130,76 @@ func connect(ctx *cli.Context) error {
 connecter:
 	// connect and identify the peer
 	logrus.Infof("attempting to connect %d nodes", len(connectPeers))
-	for i, remoteNode := range connectPeers {
-		logrus.Info("connecting to: ", remoteNode)
-		hinfo := host.Connect(remoteNode)
-		if hinfo.Error != nil {
-			logrus.Error(hinfo.Error)
-			logrus.Error(`couldn't connect to:`, remoteNode.String())
-		}
-		// logrus.Infof("remoteNode %s successfully connected:", remoteNode.String())
-		// fmt.Println("ID:", remoteNode.ID().String())
-		// fmt.Println("PK:", crawler.PubkeyToString(remoteNode.Pubkey()))
-		// fmt.Println("Seq:", remoteNode.Seq())
-		// fmt.Println("IP:", remoteNode.IP())
-		// fmt.Println("TCP:", remoteNode.TCP())
-		// fmt.Println("Client:", hinfo.ClientName)
-		// fmt.Println("Capabilities:", hinfo.Capabilities)
-		// fmt.Println("SoftwareInfo:", hinfo.SoftwareInfo)
-		// fmt.Println("Error:", hinfo.Error)
-
-		pubKey := crawler.PubkeyToString(remoteNode.Pubkey())
-		err := db_manager.InsertElNode(remoteNode, connectPeers_info[i], hinfo, pubKey)
-		if err != nil {
-			logrus.Error(err)
-		} else {
-			logrus.Info("Node succefully saved in DB")
-		}
+	var nodesToInsert []struct {
+		node  *enode.Node
+		info  []string
+		hinfo ethtest.HandshakeDetails
 	}
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if len(nodesToInsert) > 0 {
+					for _, nodeToInsert := range nodesToInsert {
+						pubKey := crawler.PubkeyToString(nodeToInsert.node.Pubkey())
+						err := db_manager.InsertElNode(nodeToInsert.node, nodeToInsert.info, nodeToInsert.hinfo, pubKey)
+						if err != nil {
+							logrus.Error(err)
+						} else {
+							logrus.Info("Node successfully saved in DB")
+						}
+					}
+					nodesToInsert = nil // Clear the slice after saving
+				} else {
+					continue
+				}
+			}
+		}
+	}()
+
+	var wg sync.WaitGroup
+
+	for i, remoteNode := range connectPeers {
+		wg.Add(1)
+		go func(node *enode.Node, info []string) {
+			defer wg.Done()
+
+			logrus.Info("connecting to: ", node)
+			hinfo := host.Connect(node)
+			if hinfo.Error != nil {
+				logrus.Error(hinfo.Error)
+				logrus.Error(`couldn't connect to:`, node.String())
+				return
+			}
+
+			nodesToInsert = append(nodesToInsert, struct {
+				node  *enode.Node
+				info  []string
+				hinfo ethtest.HandshakeDetails
+			}{
+				node:  node,
+				info:  info,
+				hinfo: hinfo,
+			})
+		}(remoteNode, connectPeers_info[i])
+	}
+
+	wg.Wait()
+
 	return nil
 }
+
+// logrus.Infof("remoteNode %s successfully connected:", remoteNode.String())
+// fmt.Println("ID:", remoteNode.ID().String())
+// fmt.Println("PK:", crawler.PubkeyToString(remoteNode.Pubkey()))
+// fmt.Println("Seq:", remoteNode.Seq())
+// fmt.Println("IP:", remoteNode.IP())
+// fmt.Println("TCP:", remoteNode.TCP())
+// fmt.Println("Client:", hinfo.ClientName)
+// fmt.Println("Capabilities:", hinfo.Capabilities)
+// fmt.Println("SoftwareInfo:", hinfo.SoftwareInfo)
+// fmt.Println("Error:", hinfo.Error)

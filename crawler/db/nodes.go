@@ -13,7 +13,7 @@ func (d *Database) createNodeTables() error {
 	_, err := d.con.Exec(
 		d.ctx,
 		`
-		CREATE TABLE IF NOT EXISTS our_eth_el_nodes (
+		CREATE TABLE IF NOT EXISTS eth_el_nodes (
 			id INT GENERATED ALWAYS AS IDENTITY,
 			node_id TEXT NOT NULL,
 			peer_id TEXT NOT NULL,
