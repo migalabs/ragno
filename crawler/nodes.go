@@ -149,10 +149,3 @@ func ParseStringToEnr(enr string) *enode.Node {
 	}
 	return remoteEnr
 }
-
-
-
-
-
-
-
