@@ -3,6 +3,7 @@ package db
 import (
 	//pgx	"github.com/jackc/pgx/v5"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -27,6 +28,7 @@ func (d *Database) createNodeTables() error {
 			client_name TEXT NOT NULL,
 			capabilities TEXT NOT NULL,
 			software_info TEXT NOT NULL,
+			error TEXT,
 
 			PRIMARY KEY (node_id)
 		);
@@ -68,7 +70,8 @@ func (d *Database) InsertElNode(remoteNode *enode.Node, info []string, hinfo eth
 			tcp,
 			client_name,
 			capabilities,
-			software_info
+			software_info,
+			error
 		)
 		VALUES (
 			'%s',
@@ -82,7 +85,8 @@ func (d *Database) InsertElNode(remoteNode *enode.Node, info []string, hinfo eth
 			'%d',
 			'%s',
 			'%s',
-			'%d'
+			'%d',
+			'%s'
 		);
 		`,
 		remoteNode.ID().String(),
@@ -97,6 +101,12 @@ func (d *Database) InsertElNode(remoteNode *enode.Node, info []string, hinfo eth
 		hinfo.ClientName,
 		hinfo.Capabilities,
 		hinfo.SoftwareInfo,
+		func(hinfo ethtest.HandshakeDetails) string {
+			if hinfo.Error != nil {
+				return strings.Replace(hinfo.Error.Error(), "'", "''", -1) // Escape single quote with two single quotes
+			}
+			return ""
+		}(hinfo),
 	)
 
 	_, err := d.con.Exec(d.ctx, insert_query)

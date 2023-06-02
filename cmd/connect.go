@@ -148,7 +148,8 @@ connecter:
 						pubKey := crawler.PubkeyToString(nodeToInsert.node.Pubkey())
 						err := db_manager.InsertElNode(nodeToInsert.node, nodeToInsert.info, nodeToInsert.hinfo, pubKey)
 						if err != nil {
-							logrus.Error(err)
+							logrus.Error(err, "Node couldn't be saved in DB")
+							panic(err)
 						} else {
 							logrus.Info("Node successfully saved in DB")
 						}
@@ -173,7 +174,6 @@ connecter:
 			if hinfo.Error != nil {
 				logrus.Error(hinfo.Error)
 				logrus.Error(`couldn't connect to:`, node.String())
-				return
 			}
 
 			nodesToInsert = append(nodesToInsert, struct {
