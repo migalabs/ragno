@@ -26,7 +26,7 @@ var RunCommand = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name: "db-endpoint",
-			Usage: "Endpoint of the database that where the results of the crawl will be stored (needst to be initialized from before)",
+			Usage: "Endpoint of the database that where the results of the crawl will be stored (needs to be initialized from before)",
 			EnvVars: []string{"RAGNO_DB_ENDPOINT"},
 			DefaultText: crawler.DefaultDBEndpoint,
 		},
