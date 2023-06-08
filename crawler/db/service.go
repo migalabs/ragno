@@ -69,7 +69,11 @@ func New(ctx context.Context, dbUrl string, persisters, batchSize int) (*Databas
 
 func (d *Database) initTables() error {
 	// Initialize the tables
-	return d.createNodeTables()
+	err := d.createNodeTables()
+	if err != nil {
+		return errors.Wrap(err, "unable to create node tables")
+	}
+	return nil
 }
 
 func (d *Database) launchPersister(idx int) {
