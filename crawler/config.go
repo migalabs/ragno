@@ -17,8 +17,9 @@ type CrawlerRunConf struct {
 	HostPort    int    `yaml:"port"`
 	MetricsIP   string `yaml:"metrics-ip"`
 	MetricsPort int    `yaml:"metics-port"`
-	CsvFile     string `yaml:"csv-file"`
+	File        string `yaml:"csv-file"`
 	Enr         string `yaml:"enr"`
+	WorkerNum   int    `yaml:"worker-num"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
@@ -29,6 +30,7 @@ func NewDefaultRun() *CrawlerRunConf {
 		HostPort:    DefaultHostPort,
 		MetricsIP:   DefaultMetricsIP,
 		MetricsPort: DefaultMetricsPort,
+		WorkerNum:   DefaultWorkerNum,
 	}
 }
 
@@ -38,7 +40,7 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 		c.LogLevel = ctx.String("log-level")
 	}
 	if ctx.IsSet("db-endpoint") {
-		c.LogLevel = ctx.String("db-endpoint")
+		c.DbEndpoint = ctx.String("db-endpoint")
 	}
 	if ctx.IsSet("ip") {
 		c.HostIP = ctx.String("ip")
@@ -53,10 +55,13 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 		c.MetricsPort = ctx.Int("metrics-port")
 	}
 	if ctx.IsSet("file") {
-		c.CsvFile = ctx.String("file")
+		c.File = ctx.String("file")
 	}
 	if ctx.IsSet("enr") {
 		c.Enr = ctx.String("enr")
+	}
+	if ctx.IsSet("worker-num") {
+		c.WorkerNum = ctx.Int("worker-num")
 	}
 	return nil
 }
