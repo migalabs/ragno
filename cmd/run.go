@@ -62,6 +62,12 @@ var RunCommand = &cli.Command{
 			Usage:   "Path to the csv file with the Enr records to connect",
 			Aliases: []string{"f"},
 		},
+		&cli.StringFlag{
+			Name:    "worker-num",
+			Usage:   "Number of workers that will be used to connect to the nodes",
+			Aliases: []string{"w"},
+			EnvVars: []string{"RAGNO_WORKER_NUM"},
+		},
 	},
 }
 
