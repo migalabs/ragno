@@ -51,10 +51,6 @@ func (d *Database) dropNodeTables() error {
 	return err
 }
 
-func (d *Database) Void() string {
-	return "nil"
-}
-
 func (d *Database) InsertElNode(remoteNode *enode.Node, info []string, hinfo ethtest.HandshakeDetails, pubKey string) error {
 	insert_query := fmt.Sprintf(
 		`
