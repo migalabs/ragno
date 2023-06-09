@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -194,4 +195,37 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*ELNodeInfo, error) {
 		enrs = append(enrs, elNodeInfo)
 	}
 	return enrs, nil
+}
+
+func GetListELNodeInfo(ctx context.Context) ([]*ELNodeInfo, error) {
+	peers := make([]*ELNodeInfo, 0)
+
+	if ctx.Value("Enr") != nil && ctx.Value("Enr") != "" {
+		sEnr := ctx.Value("Enr").(string)
+		rEnr := ParseStringToEnr(sEnr)
+		peers = append(peers, &ELNodeInfo{
+			Enode: rEnr,
+			Enr:   sEnr,
+		})
+	}
+
+	// get peers from csv file if provided
+	if ctx.Value("File") != nil && ctx.Value("File") != "" {
+		file := ctx.Value("File").(string)
+		csvImporter, err := NewCsvImporter(file)
+		if err != nil {
+			return nil, err
+		}
+
+		peers, err = ParseCsvToNodeInfo(*csvImporter)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(peers) == 0 {
+		return nil, errors.New("no peers provided")
+	}
+
+	return peers, nil
 }
