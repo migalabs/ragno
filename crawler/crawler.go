@@ -78,39 +78,13 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 
 func (c *Crawler) Run() error {
 	// init list of peers to connect to
-	peers := make([]*ELNodeInfo, 0)
-
-	// get peer if enr is provided
-	if c.ctx.Value("Enr") != nil && c.ctx.Value("Enr") != "" {
-		sEnr := c.ctx.Value("Enr").(string)
-		rEnr := ParseStringToEnr(sEnr)
-		peers = append(peers, &ELNodeInfo{
-			Enode: rEnr,
-			Enr:   sEnr,
-		})
-		println("peers from enr: ", len(peers))
+	peers, err := GetListELNodeInfo(c.ctx)
+	if err != nil {
+		logrus.Error("Couldn't get list of peers")
+		return err
 	}
 
-	// get peers from csv file if provided
-	if c.ctx.Value("File") != nil && c.ctx.Value("File") != "" {
-		file := c.ctx.Value("File").(string)
-		csvImporter, err := NewCsvImporter(file)
-		if err != nil {
-			logrus.Error("Couldn't create CSV importer")
-			return err
-		}
-
-		peers, err = ParseCsvToNodeInfo(*csvImporter)
-		if err != nil {
-			logrus.Error("Couldn't parse the file to Enr")
-			return err
-		}
-	}
-
-	// error if no peers are provided
-	if len(peers) == 0 {
-		panic("No peers provided")
-	}
+	println(peers[0].Enr)
 
 	// init db
 
