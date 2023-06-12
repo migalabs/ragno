@@ -2,11 +2,10 @@ package crawler
 
 import (
 	"context"
-	// "time"
+	"sync"
 
 	"github.com/cortze/ragno/crawler/db"
-	// "github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
-	// "github.com/ethereum/go-ethereum/p2p/enode"
+	models "github.com/cortze/ragno/pkg"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,7 +34,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create metrics module
 
 	// create db crawler
-	db, err := db.New(ctx, conf.DbEndpoint, 10, 5)
+	db, err := db.New(ctx, conf.DbEndpoint, 10, 2)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
@@ -63,6 +62,11 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		ctx = context.WithValue(ctx, "Enr", conf.Enr)
 	}
 
+	// set the number of workers if provided
+	if conf.WorkerNum != 0 {
+		ctx = context.WithValue(ctx, "Workers", conf.WorkerNum)
+	}
+
 	// create the discovery modules
 
 	crwl := &Crawler{
@@ -84,9 +88,40 @@ func (c *Crawler) Run() error {
 		return err
 	}
 
-	println(peers[0].Enr)
+	// channel for the saving of the peers
+	savingChan := make(chan *models.ELNodeInfo, 100)
+	// channel for the peers to connect to
+	connChan := make(chan *models.ELNodeInfo, len(peers))
 
-	// init db
+	// fill the channel with the peers
+	go func() {
+		for _, peer := range peers {
+			connChan <- peer
+		}
+	}()
+
+	// init the peer connections
+	workersAmount := c.ctx.Value("Workers").(int)
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < workersAmount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case peer := <-connChan:
+					// try to connect to the peer
+					Connect(&c.ctx, peer, c.host, savingChan)
+					// save the peer
+					c.db.InsertNode(peer)
+				case <-c.ctx.Done():
+					return
+				}
+			}
+		}()
+	}
 
 	// init IP locator
 
