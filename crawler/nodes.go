@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	models "github.com/cortze/ragno/pkg"
 
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 )
@@ -85,14 +85,6 @@ type EthNode struct {
 	Score  int
 	Seq    uint64
 	Record *enr.Record
-}
-
-type ELNodeInfo struct {
-	Enode         *enode.Node
-	Hinfo         ethtest.HandshakeDetails
-	Enr           string
-	FirstTimeSeen string
-	LastTimeSeen  string
 }
 
 type EthNodeOption func(*EthNode) error
@@ -171,7 +163,7 @@ func ParseStringToEnr(enr string) *enode.Node {
 	return remoteEnr
 }
 
-func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*ELNodeInfo, error) {
+func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*models.ELNodeInfo, error) {
 	// get all the lines from the CSV
 	lines, err := csvImp.Items()
 	if err != nil {
@@ -181,12 +173,12 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*ELNodeInfo, error) {
 	lines = lines[1:]
 
 	// create the list of ELNodeInfo
-	enrs := make([]*ELNodeInfo, 0, len(lines)-1)
+	enrs := make([]*models.ELNodeInfo, 0, len(lines)-1)
 
 	// parse the file
 	for _, line := range lines {
-		// create the ELNodeInfo
-		elNodeInfo := new(ELNodeInfo)
+		// create the models.ELNodeInfo
+		elNodeInfo := new(models.ELNodeInfo)
 		elNodeInfo.Enode = ParseStringToEnr(line[ENR])
 		elNodeInfo.Enr = line[ENR]
 		elNodeInfo.FirstTimeSeen = line[FIRST_SEEN]
@@ -197,13 +189,13 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*ELNodeInfo, error) {
 	return enrs, nil
 }
 
-func GetListELNodeInfo(ctx context.Context) ([]*ELNodeInfo, error) {
-	peers := make([]*ELNodeInfo, 0)
+func GetListELNodeInfo(ctx context.Context) ([]*models.ELNodeInfo, error) {
+	peers := make([]*models.ELNodeInfo, 0)
 
 	if ctx.Value("Enr") != nil && ctx.Value("Enr") != "" {
 		sEnr := ctx.Value("Enr").(string)
 		rEnr := ParseStringToEnr(sEnr)
-		peers = append(peers, &ELNodeInfo{
+		peers = append(peers, &models.ELNodeInfo{
 			Enode: rEnr,
 			Enr:   sEnr,
 		})

@@ -125,6 +125,7 @@ const (
 	InsertHostInfo
 	InsertNetInfo
 	InsertChainState
+	InsertNodeInfo
 )
 
 type Persistable struct {
