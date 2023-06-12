@@ -1,30 +1,22 @@
 package crawler
 
 import (
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
-	"github.com/ethereum/go-ethereum/p2p/enode"
+	"context"
+
+	models "github.com/cortze/ragno/pkg"
+
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 )
 
-type NodeToInsert struct {
-	Node  *enode.Node
-	Info  []string
-	Hinfo ethtest.HandshakeDetails
-}
+func Connect(ctx *context.Context, nodeInfo *models.ELNodeInfo, host *Host, savingChan chan *models.ELNodeInfo) error {
 
-func Connect(ctx *cli.Context, node *enode.Node, host *Host, ch chan ethtest.HandshakeDetails) error {
-
-	// no sense for now, but will implement retrying later
-
-	logrus.Info("connecting to: ", node)
-	hinfo := host.Connect(node)
+	logrus.Info("connecting to: ", nodeInfo.Enr)
+	hinfo := host.Connect(nodeInfo.Enode)
 	if hinfo.Error != nil {
-		logrus.Error(hinfo.Error)
-		logrus.Error(`couldn't connect to:`, node.String())
-		return hinfo.Error
+		logrus.Error("Node: ", nodeInfo.Enr, hinfo.Error)
 	}
-	logrus.Info("connected to: ", node)
-	ch <- hinfo
-	return nil
+	logrus.Info("connected to: ", nodeInfo.Enr)
+	nodeInfo.Hinfo = hinfo
+	savingChan <- nodeInfo
+	return hinfo.Error
 }

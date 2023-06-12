@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-
 func ParseBootnodes(bnodes []string) ([]*enode.Node, error) {
 	enodes := make([]*enode.Node, 0, len(bnodes))
 	for _, n := range bnodes {
@@ -25,15 +24,15 @@ func ParseBootnodes(bnodes []string) ([]*enode.Node, error) {
 func PubkeyToString(pub *ecdsa.PublicKey) string {
 	pubBytes := crypto.FromECDSAPub(pub)
 	return hex.EncodeToString(pubBytes)
-		
 }
 
 type Llvl string
+
 var (
-	Trace Llvl = "trace"
-	Debug Llvl = "debug"
-	Info Llvl = "info"
-	Warn Llvl = "warn"
+	Trace  Llvl = "trace"
+	Debug  Llvl = "debug"
+	Info   Llvl = "info"
+	Warn   Llvl = "warn"
 	ErrorL Llvl = "error"
 )
 
