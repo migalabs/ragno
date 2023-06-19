@@ -3,20 +3,18 @@ package crawler
 import (
 	"context"
 
-	models "github.com/cortze/ragno/pkg"
+	models "github.com/cortze/ragno/pkg/models"
 
 	"github.com/sirupsen/logrus"
 )
 
-func Connect(ctx *context.Context, nodeInfo *models.ELNodeInfo, host *Host, savingChan chan *models.ELNodeInfo) error {
+func Connect(ctx *context.Context, nodeInfo *models.ELNodeInfo, host *Host) {
 
 	logrus.Info("connecting to: ", nodeInfo.Enr)
-	hinfo := host.Connect(nodeInfo.Enode)
-	if hinfo.Error != nil {
-		logrus.Error("Node: ", nodeInfo.Enr, hinfo.Error)
+	nodeInfo.Hinfo = host.Connect(nodeInfo.Enode)
+	if nodeInfo.Hinfo.Error != nil {
+		logrus.Error("Node: ", nodeInfo.Enr, ": ", nodeInfo.Hinfo.Error)
+	} else {
+		logrus.Info("Node: ", nodeInfo.Enr, " connected")
 	}
-	logrus.Info("connected to: ", nodeInfo.Enr)
-	nodeInfo.Hinfo = hinfo
-	savingChan <- nodeInfo
-	return hinfo.Error
 }
