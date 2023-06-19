@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cortze/ragno/pkg/spec"
 	"github.com/pkg/errors"
-	models "github.com/cortze/ragno/pkg/models"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
@@ -163,7 +163,7 @@ func ParseStringToEnr(enr string) *enode.Node {
 	return remoteEnr
 }
 
-func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*models.ELNodeInfo, error) {
+func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*spec.ELNode, error) {
 	// get all the lines from the CSV
 	lines, err := csvImp.Items()
 	if err != nil {
@@ -173,12 +173,12 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*models.ELNodeInfo, error) {
 	lines = lines[1:]
 
 	// create the list of ELNodeInfo
-	enrs := make([]*models.ELNodeInfo, 0, len(lines)-1)
+	enrs := make([]*spec.ELNode, 0, len(lines)-1)
 
 	// parse the file
 	for _, line := range lines {
-		// create the models.ELNodeInfo
-		elNodeInfo := new(models.ELNodeInfo)
+		// create the spec.ELNode
+		elNodeInfo := new(spec.ELNode)
 		elNodeInfo.Enode = ParseStringToEnr(line[ENR])
 		elNodeInfo.Enr = line[ENR]
 		elNodeInfo.FirstTimeSeen = line[FIRST_SEEN]
@@ -189,13 +189,13 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*models.ELNodeInfo, error) {
 	return enrs, nil
 }
 
-func GetListELNodeInfo(ctx context.Context) ([]*models.ELNodeInfo, error) {
-	peers := make([]*models.ELNodeInfo, 0)
+func GetListELNodeInfo(ctx context.Context) ([]*spec.ELNode, error) {
+	peers := make([]*spec.ELNode, 0)
 
 	if ctx.Value("Enr") != nil && ctx.Value("Enr") != "" {
 		sEnr := ctx.Value("Enr").(string)
 		rEnr := ParseStringToEnr(sEnr)
-		peers = append(peers, &models.ELNodeInfo{
+		peers = append(peers, &spec.ELNode{
 			Enode: rEnr,
 			Enr:   sEnr,
 		})
