@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/cortze/ragno/crawler/db"
-	models "github.com/cortze/ragno/pkg"
+	models "github.com/cortze/ragno/pkg/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,7 +16,7 @@ type Crawler struct {
 	host *Host
 
 	// database
-	db *db.Database
+	db *db.PostgresDBService
 
 	// discovery
 
@@ -34,7 +34,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create metrics module
 
 	// create db crawler
-	db, err := db.New(ctx, conf.DbEndpoint, 10, 2)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.WorkerNum)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
@@ -88,8 +88,6 @@ func (c *Crawler) Run() error {
 		return err
 	}
 
-	// channel for the saving of the peers
-	savingChan := make(chan *models.ELNodeInfo, 100)
 	// channel for the peers to connect to
 	connChan := make(chan *models.ELNodeInfo, len(peers))
 
@@ -113,9 +111,9 @@ func (c *Crawler) Run() error {
 				select {
 				case peer := <-connChan:
 					// try to connect to the peer
-					Connect(&c.ctx, peer, c.host, savingChan)
+					Connect(&c.ctx, peer, c.host)
 					// save the peer
-					c.db.InsertNode(peer)
+					// c.db.InsertNode(peer)
 				case <-c.ctx.Done():
 					return
 				}
