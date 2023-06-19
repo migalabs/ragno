@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/cortze/ragno/crawler/db"
-	models "github.com/cortze/ragno/pkg/models"
+	"github.com/cortze/ragno/pkg/spec"
 	"github.com/sirupsen/logrus"
 )
 
@@ -89,7 +89,7 @@ func (c *Crawler) Run() error {
 	}
 
 	// channel for the peers to connect to
-	connChan := make(chan *models.ELNodeInfo, len(peers))
+	connChan := make(chan *spec.ELNode, len(peers))
 
 	// fill the channel with the peers
 	go func() {
@@ -113,6 +113,7 @@ func (c *Crawler) Run() error {
 					// try to connect to the peer
 					Connect(&c.ctx, peer, c.host)
 					// save the peer
+					c.db.Persist(*peer)
 					// c.db.InsertNode(peer)
 				case <-c.ctx.Done():
 					return

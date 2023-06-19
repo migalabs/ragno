@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	// "github.com/cortze/ragno/pkg/models"
+	"github.com/cortze/ragno/pkg/spec"
 	utils "github.com/cortze/ragno/pkg/utils"
 )
 
@@ -91,8 +93,8 @@ func (p *PostgresDBService) Finish() {
 
 func (p *PostgresDBService) runWriters() {
 
-	wlog.Info("Launching Beacon State Writers")
-	wlog.Infof("Launching %d Beacon State Writers", p.workerNum)
+	wlog.Info("Launching ELNode Writers")
+	wlog.Infof("Launching %d ELNode Writers", p.workerNum)
 	for i := 0; i < p.workerNum; i++ {
 		p.wgDBWriters.Add(1)
 		go func(dbWriterID int) {
@@ -109,12 +111,10 @@ func (p *PostgresDBService) runWriters() {
 					persis := NewPersistable()
 
 					switch task.Type() {
-					// TODO: create the nodes insertion case
-
-					// case spec.BlockModel:
-					// q, args := BlockOperation(task.(spec.AgnosticBlock))
-					// persis.query = q
-					// persis.values = append(persis.values, args...)
+					case spec.NodeModel:
+						q, args := ELNodeOperation(task.(spec.ELNode))
+						persis.query = q
+						persis.values = append(persis.values, args...)
 					default:
 						err = fmt.Errorf("could not figure out the type of write task")
 						wlog.Errorf("could not process incoming task, %s", err)
@@ -160,12 +160,5 @@ func (p *PostgresDBService) Persist(w Model) {
 
 type Model interface { // simply to enforce a Model interface
 	// For now we simply support insert operations
-	Type() ModelType // whether insert is activated for this model
+	Type() spec.ModelType // whether insert is activated for this model
 }
-
-type ModelType int8
-
-const (
-	_ ModelType = iota
-	NodeModel
-)
