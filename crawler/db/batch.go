@@ -1,35 +1,39 @@
 package db
 
-
 import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	pgx "github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
 	QueryTimeout = 5 * time.Minute
-	MaxRetries   = 2
+	MaxRetries   = 1
 
-	noQueryResult string = "no result"
+	ErrorNoConnFree        = "no connection adquirable"
+	noQueryError    string = "no error"
+	noQueryResult   string = "no result"
 )
 
 type QueryBatch struct {
-	ctx     context.Context
-	pgxPool *pgx.Conn
-	batch   *pgx.Batch
-	size    int
+	ctx          context.Context
+	pgxPool      *pgxpool.Pool
+	batch        *pgx.Batch
+	size         int
+	persistables []Persistable
 }
 
-func NewQueryBatch(ctx context.Context, pgxPool *pgx.Conn, batchSize int) *QueryBatch {
+func NewQueryBatch(ctx context.Context, pgxPool *pgxpool.Pool, batchSize int) *QueryBatch {
 	return &QueryBatch{
-		ctx:     ctx,
-		pgxPool: pgxPool,
-		batch:   &pgx.Batch{},
-		size:    batchSize,
+		ctx:          ctx,
+		pgxPool:      pgxPool,
+		batch:        &pgx.Batch{},
+		size:         batchSize,
+		persistables: make([]Persistable, 0),
 	}
 }
 
@@ -37,8 +41,9 @@ func (q *QueryBatch) IsReadyToPersist() bool {
 	return q.batch.Len() >= q.size
 }
 
-func (q *QueryBatch) AddQuery(query string, args ...interface{}) {
-	q.batch.Queue(query, args...)
+func (q *QueryBatch) AddQuery(persis Persistable) {
+	q.batch.Queue(persis.query, persis.values...)
+	q.persistables = append(q.persistables, persis)
 }
 
 func (q *QueryBatch) Len() int {
@@ -49,19 +54,19 @@ func (q *QueryBatch) PersistBatch() error {
 	logEntry := log.WithFields(log.Fields{
 		"mod": "batch-persister",
 	})
-	logEntry.Debugf("persisting batch of queries with len(%d)", q.Len())
+	wlog.Debugf("persisting batch of queries with len(%d)", q.Len())
 	var err error
 persistRetryLoop:
-	for i := 0; i <= MaxRetries; i++ {
+	for i := 0; i < MaxRetries; i++ {
 		t := time.Now()
 		err = q.persistBatch()
 		duration := time.Since(t)
 		switch err {
 		case nil:
-			logEntry.Debugf("persisted %d queries in %s seconds", q.Len(), duration)
+			logEntry.Tracef("persisted %d queries in %s seconds", q.Len(), duration)
 			break persistRetryLoop
 		default:
-			logEntry.Debugf("attempt numb %d failed %s", i+1, err.Error())
+			logEntry.Tracef("attempt numb %d failed %s", i+1, err.Error())
 		}
 	}
 	q.cleanBatch()
@@ -72,46 +77,58 @@ func (q *QueryBatch) persistBatch() error {
 	logEntry := log.WithFields(log.Fields{
 		"mod": "batch-persister",
 	})
-	// if batch len == 0, don't even query
+
 	if q.Len() == 0 {
-		logEntry.Debug("skipping batch-query, no queries to persist")
+		logEntry.Trace("skipping batch-query, no queries to persist")
 		return nil
 	}
 
-	// generate a timeout to the batch-persisting
 	ctx, cancel := context.WithTimeout(q.ctx, QueryTimeout)
 	defer cancel()
 
-	// begin pgx.Tx
-	logEntry.Trace("beginning a new transaction to store the batched queries")
-	tx, err := q.pgxPool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	// Add batch to TX
-	logEntry.Trace("sending batch over transaction")
-	batchResults := tx.SendBatch(ctx, q.batch)
+	batchResults := q.pgxPool.SendBatch(ctx, q.batch)
+	defer batchResults.Close()
 
-	// Exec the queries
 	var qerr error
 	var rows pgx.Rows
-	var cnt int
-	for qerr == nil {
+	nextQuery := true
+	cnt := 0
+	for nextQuery {
 		rows, qerr = batchResults.Query()
-		rows.Close()
+		nextQuery = rows.Next() // it closes all the rows if all the rows are readed
 		cnt++
 	}
-	logEntry.Trace("readed all the result of the queries inside the batch")
 	// check if there was any error
-	if qerr.Error() != noQueryResult {
-		log.Errorf("unable to persist betch because an error on row %d \n %+v \n %+v", cnt, rows, err)
-		errRollback := tx.Commit(q.ctx)
-		log.Errorf("rolled back with err %+v", errRollback)
-		return err
+	if qerr != nil {
+		log.WithFields(log.Fields{
+			"error":  qerr.Error(),
+			"query":  q.persistables[cnt-1].query,
+			"values": q.persistables[cnt-1].values,
+		}).Errorf("unable to persist query [%d]", cnt-1)
+		return errors.Wrap(qerr, "error persisting batch")
 	}
-	return tx.Commit(q.ctx)
+	return nil
 }
 
 func (q *QueryBatch) cleanBatch() {
 	q.batch = &pgx.Batch{}
+	q.persistables = make([]Persistable, 0)
+}
+
+// persistable is the main structure fed to the batcher
+// allows to link batching errors with the query and values
+// that generated it
+type Persistable struct {
+	query  string
+	values []interface{}
+}
+
+func NewPersistable() Persistable {
+	return Persistable{
+		values: make([]interface{}, 0),
+	}
+}
+
+func (p *Persistable) isEmpty() bool {
+	return p.query == ""
 }

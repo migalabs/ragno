@@ -37,7 +37,7 @@ type Host struct {
 
 	chainStatus ChainStatus
 	// related services
-	db *db.Database
+	db *db.PostgresDBService
 
 	// map of connections per remote peers
 	//peers map[node.ID]ethnode.Client
@@ -85,7 +85,7 @@ func WithPrivKey(privk *ecdsa.PrivateKey) HostOption {
 }
 
 // TODO: maybe not the best thing
-func WithDatabase(db *db.Database) HostOption {
+func WithDatabase(db *db.PostgresDBService) HostOption {
 	return func(h *Host) error {
 		h.db = db
 		return nil
