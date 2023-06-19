@@ -5,7 +5,8 @@ import (
 	"encoding/hex"
 	"strings"
 
-	models "github.com/cortze/ragno/pkg/models"
+	// models "github.com/cortze/ragno/pkg/models"
+	"github.com/cortze/ragno/pkg/spec"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -18,16 +19,16 @@ var (
 		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT NOT NULL,
 		peer_id TEXT NOT NULL,
-		first_seen TIMESTAMP NOT NULL,
-		last_seen TIMESTAMP NOT NULL,
+		first_seen TEXT NOT NULL,
+		last_seen TEXT NOT NULL,
 		public_key TEXT NOT NULL,
 		enr TEXT NOT NULL,
-		seq_number TEXT NOT NULL,
+		seq_number INT NOT NULL,
 		ip TEXT NOT NULL,
-		tcp TEXT NOT NULL,
+		tcp INT NOT NULL,
 		client_name TEXT NOT NULL,
 		capabilities TEXT NOT NULL,
-		software_info TEXT NOT NULL,
+		software_info INT NOT NULL,
 		error TEXT,
 
 		PRIMARY KEY (node_id)
@@ -87,7 +88,7 @@ func (d *PostgresDBService) dropNodeTables() error {
 	return nil
 }
 
-func insertNode(node *models.ELNodeInfo) (string, []interface{}) {
+func insertNode(node spec.ELNode) (string, []interface{}) {
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
 	resultArgs = append(resultArgs, "0")
@@ -102,7 +103,13 @@ func insertNode(node *models.ELNodeInfo) (string, []interface{}) {
 	resultArgs = append(resultArgs, node.Enode.IP())
 	resultArgs = append(resultArgs, node.Enode.TCP())
 	resultArgs = append(resultArgs, node.Hinfo.ClientName)
-	resultArgs = append(resultArgs, node.Hinfo.Capabilities)
+	resultArgs = append(resultArgs, func(hinfo ethtest.HandshakeDetails) string {
+		capabilities := ""
+		for _, cap := range hinfo.Capabilities {
+			capabilities = capabilities + cap.String() + ","
+		}
+		return capabilities
+	}(node.Hinfo))
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
 	resultArgs = append(resultArgs, func(hinfo ethtest.HandshakeDetails) string {
 		if hinfo.Error != nil {
@@ -114,7 +121,7 @@ func insertNode(node *models.ELNodeInfo) (string, []interface{}) {
 	return InsertNodeInfo, resultArgs
 }
 
-func ELNodeOperation(node *models.ELNodeInfo) (string, []interface{}) {
+func ELNodeOperation(node spec.ELNode) (string, []interface{}) {
 	q, args := insertNode(node)
 	return q, args
 }

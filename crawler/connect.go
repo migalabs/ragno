@@ -3,12 +3,11 @@ package crawler
 import (
 	"context"
 
-	models "github.com/cortze/ragno/pkg/models"
-
+	"github.com/cortze/ragno/pkg/spec"
 	"github.com/sirupsen/logrus"
 )
 
-func Connect(ctx *context.Context, nodeInfo *models.ELNodeInfo, host *Host) {
+func Connect(ctx *context.Context, nodeInfo *spec.ELNode, host *Host) {
 
 	logrus.Info("connecting to: ", nodeInfo.Enr)
 	nodeInfo.Hinfo = host.Connect(nodeInfo.Enode)
