@@ -1,15 +1,12 @@
 package crawler
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/cortze/ragno/pkg/spec"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
@@ -140,67 +137,4 @@ func (n *EthNode) ComposeCSVItems() []string {
 	items = append(items, n.Pubkey)
 	items = append(items, n.Node.String())
 	return items
-}
-
-func ParseStringToEnr(enr string) *enode.Node {
-	// parse the Enr
-	remoteEnr, err := enode.Parse(enode.ValidSchemes, enr)
-	if err != nil {
-		remoteEnr = enode.MustParseV4(enr)
-	}
-	return remoteEnr
-}
-
-func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*spec.ELNode, error) {
-	// get all the lines from the CSV
-	lines, err := csvImp.Items()
-	if err != nil {
-		return nil, err
-	}
-
-	// remove the header
-	lines = lines[1:]
-
-	// create the list of ELNodeInfo
-	enrs := make([]*spec.ELNode, 0, len(lines)-1)
-
-	// parse the file
-	for _, line := range lines {
-		// create the spec.ELNode
-		elNodeInfo := new(spec.ELNode)
-		elNodeInfo.Enode = ParseStringToEnr(line[ENR])
-		elNodeInfo.Enr = line[ENR]
-		elNodeInfo.FirstTimeSeen = line[FIRST_SEEN]
-		elNodeInfo.LastTimeSeen = line[LAST_SEEN]
-		// add the struct to the list
-		enrs = append(enrs, elNodeInfo)
-	}
-	return enrs, nil
-}
-
-func GetListELNodeInfo(ctx context.Context) ([]*spec.ELNode, error) {
-	peers := make([]*spec.ELNode, 0)
-
-	logrus.Trace("Getting the list of peers to connect to from csv file")
-
-	// get peers from csv file if provided
-	if ctx.Value("File") != nil && ctx.Value("File") != "" {
-		file := ctx.Value("File").(string)
-		csvImporter, err := NewCsvImporter(file)
-		if err != nil {
-			return nil, err
-		}
-
-		peers, err = ParseCsvToNodeInfo(*csvImporter)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(peers) == 0 {
-		return nil, errors.New("no peers provided")
-	}
-
-	logrus.Trace("List successfully retrieved, amount of peers: ", len(peers))
-	return peers, nil
 }
