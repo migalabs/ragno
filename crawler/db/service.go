@@ -12,7 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cortze/ragno/pkg/spec"
-	utils "github.com/cortze/ragno/pkg/utils"
+)
+
+const (
+	// RoutineFlushTimeout is the time to wait for the routine to flush the queue
+	RoutineFlushTimeout = time.Duration(1 * time.Second)
 )
 
 // Static postgres queries, for each modification in the tables, the table needs to be reseted
@@ -100,7 +104,7 @@ func (p *PostgresDBService) runWriters() {
 			defer p.wgDBWriters.Done()
 			batcher := NewQueryBatch(p.ctx, p.psqlPool, MAX_BATCH_QUEUE)
 			wlogWriter := wlog.WithField("DBWriter", dbWriterID)
-			ticker := time.NewTicker(utils.RoutineFlushTimeout)
+			ticker := time.NewTicker(RoutineFlushTimeout)
 		loop:
 			for {
 				select {
