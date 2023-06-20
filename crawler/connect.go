@@ -1,15 +1,14 @@
 package crawler
 
 import (
-	"context"
 
 	"github.com/cortze/ragno/pkg/spec"
 	"github.com/sirupsen/logrus"
 )
 
-func Connect(ctx *context.Context, nodeInfo *spec.ELNode, host *Host) {
+func (c *Crawler) Connect(nodeInfo *spec.ELNode) {
 
-	nodeInfo.Hinfo = host.Connect(nodeInfo.Enode)
+	nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
 	if nodeInfo.Hinfo.Error != nil {
 		logrus.Trace("Node: ", nodeInfo.Enr, ": ", nodeInfo.Hinfo.Error)
 	} else {
