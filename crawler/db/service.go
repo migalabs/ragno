@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	// "github.com/cortze/ragno/pkg/models"
 	"github.com/cortze/ragno/pkg/spec"
 	utils "github.com/cortze/ragno/pkg/utils"
 )

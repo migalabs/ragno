@@ -9,6 +9,7 @@ import (
 
 	"github.com/cortze/ragno/pkg/spec"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
@@ -192,6 +193,8 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*spec.ELNode, error) {
 func GetListELNodeInfo(ctx context.Context) ([]*spec.ELNode, error) {
 	peers := make([]*spec.ELNode, 0)
 
+	logrus.Trace("Getting the list of peers to connect to from csv file or enr")
+
 	if ctx.Value("Enr") != nil && ctx.Value("Enr") != "" {
 		sEnr := ctx.Value("Enr").(string)
 		rEnr := ParseStringToEnr(sEnr)
@@ -219,5 +222,6 @@ func GetListELNodeInfo(ctx context.Context) ([]*spec.ELNode, error) {
 		return nil, errors.New("no peers provided")
 	}
 
+	logrus.Trace("List successfully retrieved, amount of peers: ", len(peers))
 	return peers, nil
 }
