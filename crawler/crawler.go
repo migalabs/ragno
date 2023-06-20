@@ -7,6 +7,8 @@ import (
 	"github.com/cortze/ragno/crawler/db"
 	"github.com/cortze/ragno/pkg/spec"
 	"github.com/sirupsen/logrus"
+
+	peerDisc "github.com/cortze/ragno/crawler/peerDiscoverer"
 )
 
 type Crawler struct {
@@ -74,23 +76,37 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 }
 
 func (c *Crawler) Run() error {
-	// init list of peers to connect to
-	peers, err := GetListELNodeInfo(c.ctx)
+
+	// channel to send peers to the workers
+	connChan := make(chan *spec.ELNode, 1000)
+
+	discConf := peerDisc.PeerDiscovererConf{
+		SendingChan: connChan,
+	}
+
+	// create the discoverer depending if a csv is provided or not
+	csvFile := c.ctx.Value("File")
+	if csvFile != nil && csvFile.(string) != "" {
+		discConf.Type = peerDisc.CsvType
+		discConf.File = csvFile.(string)
+	} else {
+		logrus.Info("No list of peers provided, starting discovery")
+		discConf.Type = peerDisc.Discv4Type
+	}
+
+	discoverer, err := peerDisc.NewPeerDiscoverer(c.ctx, discConf)
 	if err != nil {
-		logrus.Error("Couldn't get list of peers")
+		logrus.Error("Couldn't create peer discoverer")
 		return err
 	}
 
-	// channel for the peers to connect to
-	connChan := make(chan *spec.ELNode, len(peers))
-
-	// fill the channel with the peers
+	// start the peer discoverer
 	go func() {
-		logrus.Debug("Start fill connChan")
-		for _, peer := range peers {
-			connChan <- peer
+		logrus.Info("Starting peer discoverer")
+		err := discoverer.Run()
+		if err != nil {
+			logrus.Error("Error in peer discoverer: ", err)
 		}
-		logrus.Debug("Finish fill connChan")
 	}()
 
 	// start workers to connect to peers
