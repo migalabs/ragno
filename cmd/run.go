@@ -53,11 +53,6 @@ var RunCommand = &cli.Command{
 			EnvVars: []string{"RAGNO_METRICS_PORT"},
 		},
 		&cli.StringFlag{
-			Name:    "enr",
-			Usage:   "Enr of the node to connect",
-			Aliases: []string{"e"},
-		},
-		&cli.StringFlag{
 			Name:    "file",
 			Usage:   "Path to the csv file with the Enr records to connect",
 			Aliases: []string{"f"},
