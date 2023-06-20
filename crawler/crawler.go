@@ -34,7 +34,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create metrics module
 
 	// create db crawler
-	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.WorkerNum)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.SaverNum)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
