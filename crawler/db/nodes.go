@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/cortze/ragno/pkg/spec"
+	"github.com/cortze/ragno/pkg/modules"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -87,7 +87,7 @@ func (d *PostgresDBService) dropNodeTables() error {
 	return nil
 }
 
-func insertNode(node spec.ELNode) (string, []interface{}) {
+func insertNode(node modules.ELNode) (string, []interface{}) {
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
 	resultArgs = append(resultArgs, "0")
@@ -120,7 +120,7 @@ func insertNode(node spec.ELNode) (string, []interface{}) {
 	return InsertNodeInfo, resultArgs
 }
 
-func ELNodeOperation(node spec.ELNode) (string, []interface{}) {
+func ELNodeOperation(node modules.ELNode) (string, []interface{}) {
 	q, args := insertNode(node)
 	return q, args
 }
