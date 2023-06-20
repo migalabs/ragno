@@ -193,16 +193,7 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*spec.ELNode, error) {
 func GetListELNodeInfo(ctx context.Context) ([]*spec.ELNode, error) {
 	peers := make([]*spec.ELNode, 0)
 
-	logrus.Trace("Getting the list of peers to connect to from csv file or enr")
-
-	if ctx.Value("Enr") != nil && ctx.Value("Enr") != "" {
-		sEnr := ctx.Value("Enr").(string)
-		rEnr := ParseStringToEnr(sEnr)
-		peers = append(peers, &spec.ELNode{
-			Enode: rEnr,
-			Enr:   sEnr,
-		})
-	}
+	logrus.Trace("Getting the list of peers to connect to from csv file")
 
 	// get peers from csv file if provided
 	if ctx.Value("File") != nil && ctx.Value("File") != "" {

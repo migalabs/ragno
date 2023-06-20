@@ -1,10 +1,6 @@
 package crawler
 
 import (
-	// "os"
-
-	// "github.com/go-yaml/yaml"
-	// "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
@@ -19,7 +15,6 @@ type CrawlerRunConf struct {
 	MetricsIP   string `yaml:"metrics-ip"`
 	MetricsPort int    `yaml:"metics-port"`
 	File        string `yaml:"csv-file"`
-	Enr         string `yaml:"enr"`
 	WorkerNum   int    `yaml:"worker-num"`
 	SaverNum    int    `yaml:"saver-num"`
 }
@@ -65,9 +60,6 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	}
 	if ctx.IsSet("file") {
 		c.File = ctx.String("file")
-	}
-	if ctx.IsSet("enr") {
-		c.Enr = ctx.String("enr")
 	}
 	if ctx.IsSet("worker-num") {
 		c.WorkerNum = ctx.Int("worker-num")

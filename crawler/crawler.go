@@ -57,11 +57,6 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		ctx = context.WithValue(ctx, "File", conf.File)
 	}
 
-	// set the enr to connect to if provided
-	if conf.Enr != "" {
-		ctx = context.WithValue(ctx, "Enr", conf.Enr)
-	}
-
 	// set the number of workers if provided
 	if conf.WorkerNum != 0 {
 		ctx = context.WithValue(ctx, "Workers", conf.WorkerNum)
