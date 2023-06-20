@@ -5,6 +5,7 @@ import (
 
 	// "github.com/go-yaml/yaml"
 	// "github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
@@ -39,7 +40,13 @@ func NewDefaultRun() *CrawlerRunConf {
 // Only considered the configuration for the Execution Layer's crawler -> RunCommand
 func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	if ctx.IsSet("log-level") {
-		c.LogLevel = ctx.String("log-level")
+		parsedLevel, err := logrus.ParseLevel(ctx.String("log-level"))
+		if err != nil {
+			logrus.Warnf("invalid log level %s, using %s", ctx.String("log-level"), DefaultLogLevel)
+		} else {
+			c.LogLevel = parsedLevel.String()
+			logrus.SetLevel(parsedLevel)
+		}
 	}
 	if ctx.IsSet("db-endpoint") {
 		c.DbEndpoint = ctx.String("db-endpoint")

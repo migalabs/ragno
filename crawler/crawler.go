@@ -93,9 +93,11 @@ func (c *Crawler) Run() error {
 
 	// fill the channel with the peers
 	go func() {
+		logrus.Debug("Start fill connChan")
 		for _, peer := range peers {
 			connChan <- peer
 		}
+		logrus.Debug("Finish fill connChan")
 	}()
 
 	// init the peer connections
@@ -103,23 +105,24 @@ func (c *Crawler) Run() error {
 
 	var wg sync.WaitGroup
 
+	logrus.Info("Starting ", workersAmount, " workers to connect to peers")
 	for i := 0; i < workersAmount; i++ {
 		wg.Add(1)
-		go func() {
+		go func(i int) {
 			defer wg.Done()
 			for {
 				select {
 				case peer := <-connChan:
 					// try to connect to the peer
+					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
 					Connect(&c.ctx, peer, c.host)
 					// save the peer
 					c.db.Persist(*peer)
-					// c.db.InsertNode(peer)
 				case <-c.ctx.Done():
 					return
 				}
 			}
-		}()
+		}(i)
 	}
 
 	// init IP locator

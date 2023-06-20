@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"strings"
 
-	// models "github.com/cortze/ragno/pkg/models"
 	"github.com/cortze/ragno/pkg/spec"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
