@@ -1,4 +1,4 @@
-package spec
+package modules
 
 import (
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"

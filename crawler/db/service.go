@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cortze/ragno/pkg/spec"
+	"github.com/cortze/ragno/pkg/modules"
 )
 
 const (
@@ -114,8 +114,8 @@ func (p *PostgresDBService) runWriters() {
 					persis := NewPersistable()
 
 					switch task.Type() {
-					case spec.NodeModel:
-						q, args := ELNodeOperation(task.(spec.ELNode))
+					case modules.NodeModel:
+						q, args := ELNodeOperation(task.(modules.ELNode))
 						persis.query = q
 						persis.values = append(persis.values, args...)
 					default:
@@ -163,5 +163,5 @@ func (p *PostgresDBService) Persist(w Model) {
 
 type Model interface { // simply to enforce a Model interface
 	// For now we simply support insert operations
-	Type() spec.ModelType // whether insert is activated for this model
+	Type() modules.ModelType // whether insert is activated for this model
 }
