@@ -1,4 +1,4 @@
-package crawler
+package csv
 
 import (
 	"encoding/csv"
