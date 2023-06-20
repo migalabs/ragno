@@ -5,7 +5,20 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var ()
+var (
+	// crawler host related metrics
+	DefaultLogLevel          = "info"
+	DefaultDBEndpoint        = "postgresql://user:password@localhost:5432/ragno"
+	DefaultHostIP            = "0.0.0.0"
+	DefaultHostPort          = 9050
+	DefaultMetricsIP         = "localhost"
+	DefaultMetricsPort       = 9070
+	DefaultConcurrentDialers = 150
+	DefaultConcurrentSavers  = 150
+
+	// Not using yaml files so far
+	DefaultConfigFile = "config/example.yaml"
+)
 
 type CrawlerRunConf struct {
 	LogLevel          string `yaml:"log-level"`
