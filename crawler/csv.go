@@ -6,6 +6,19 @@ import (
 	"strings"
 )
 
+const (
+	// csv columns
+	NODE_ID = iota
+	FIRST_SEEN
+	LAST_SEEN
+	IP
+	TCP
+	UDP
+	SEQ
+	PK
+	ENR
+)
+
 // for now only supports list of enr so far
 type CSVImporter struct {
 	path string

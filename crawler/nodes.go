@@ -15,19 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enr"
 )
 
-const (
-	// csv columns
-	NODE_ID = iota
-	FIRST_SEEN
-	LAST_SEEN
-	IP
-	TCP
-	UDP
-	SEQ
-	PK
-	ENR
-)
-
 type EnodeSet struct {
 	m    sync.RWMutex
 	list map[string]*EthNode
@@ -171,6 +158,7 @@ func ParseCsvToNodeInfo(csvImp CSVImporter) ([]*spec.ELNode, error) {
 		return nil, err
 	}
 
+	// remove the header
 	lines = lines[1:]
 
 	// create the list of ELNodeInfo
