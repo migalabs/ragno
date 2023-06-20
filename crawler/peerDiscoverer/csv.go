@@ -2,12 +2,12 @@ package peerDiscoverer
 
 import (
 	"github.com/cortze/ragno/pkg/csv"
-	"github.com/cortze/ragno/pkg/spec"
+	"github.com/cortze/ragno/pkg/modules"
 	"github.com/cortze/ragno/pkg/utils"
 )
 
 type CsvPeerDiscoverer struct {
-	sendingChan chan<- *spec.ELNode
+	sendingChan chan<- *modules.ELNode
 	csvImporter *csv.CSVImporter
 }
 
@@ -43,21 +43,21 @@ func (c *CsvPeerDiscoverer) Run() error {
 	return nil
 }
 
-func (c *CsvPeerDiscoverer) sendNodes(node *spec.ELNode) {
+func (c *CsvPeerDiscoverer) sendNodes(node *modules.ELNode) {
 	c.sendingChan <- node
 }
 
-func (c *CsvPeerDiscoverer) ParseCsvToNodeInfo(lines [][]string) ([]*spec.ELNode, error) {
+func (c *CsvPeerDiscoverer) ParseCsvToNodeInfo(lines [][]string) ([]*modules.ELNode, error) {
 	// remove the header
 	lines = lines[1:]
 
 	// create the list of ELNodeInfo
-	enrs := make([]*spec.ELNode, 0, len(lines)-1)
+	enrs := make([]*modules.ELNode, 0, len(lines)-1)
 
 	// parse the file
 	for _, line := range lines {
-		// create the spec.ELNode
-		elNodeInfo := new(spec.ELNode)
+		// create the modules.ELNode
+		elNodeInfo := new(modules.ELNode)
 		elNodeInfo.Enode = utils.ParseStringToEnr(line[csv.ENR])
 		elNodeInfo.Enr = line[csv.ENR]
 		elNodeInfo.FirstTimeSeen = line[csv.FIRST_SEEN]

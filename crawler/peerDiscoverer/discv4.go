@@ -1,11 +1,11 @@
 package peerDiscoverer
 
 import (
-	"github.com/cortze/ragno/pkg/spec"
+	"github.com/cortze/ragno/pkg/modules"
 )
 
 type Discv4PeerDiscoverer struct {
-	sendingChan chan<- *spec.ELNode
+	sendingChan chan<- *modules.ELNode
 	port        int
 }
 
@@ -21,6 +21,6 @@ func (c *Discv4PeerDiscoverer) Run() error {
 	return nil
 }
 
-func (c *Discv4PeerDiscoverer) sendNodes(node *spec.ELNode) {
+func (c *Discv4PeerDiscoverer) sendNodes(node *modules.ELNode) {
 	c.sendingChan <- node
 }

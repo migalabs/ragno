@@ -3,7 +3,7 @@ package peerDiscoverer
 import (
 	"context"
 
-	"github.com/cortze/ragno/pkg/spec"
+	"github.com/cortze/ragno/pkg/modules"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,12 +11,12 @@ type PeerDiscoverer interface {
 	// Run starts the peer discovery process or get the nodes from the file
 	Run() error
 	// sendNodes sends the nodes to the channel
-	sendNodes(node *spec.ELNode)
+	sendNodes(node *modules.ELNode)
 }
 
 type PeerDiscovererConf struct {
 	Type        DiscovererType
-	SendingChan chan<- *spec.ELNode
+	SendingChan chan<- *modules.ELNode
 	File        string
 	Port        int
 }

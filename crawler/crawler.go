@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/cortze/ragno/crawler/db"
-	"github.com/cortze/ragno/pkg/spec"
+	"github.com/cortze/ragno/pkg/modules"
 	"github.com/sirupsen/logrus"
 
 	peerDisc "github.com/cortze/ragno/crawler/peerDiscoverer"
@@ -78,7 +78,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 func (c *Crawler) Run() error {
 
 	// channel to send peers to the workers
-	connChan := make(chan *spec.ELNode, 1000)
+	connChan := make(chan *modules.ELNode, 1000)
 
 	discConf := peerDisc.PeerDiscovererConf{
 		SendingChan: connChan,
