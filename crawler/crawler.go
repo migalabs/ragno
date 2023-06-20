@@ -110,7 +110,7 @@ func (c *Crawler) Run() error {
 				case peer := <-connChan:
 					// try to connect to the peer
 					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
-					Connect(&c.ctx, peer, c.host)
+					c.Connect(peer)
 					// save the peer
 					c.db.Persist(*peer)
 				case <-c.ctx.Done():
