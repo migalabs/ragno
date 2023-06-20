@@ -10,7 +10,8 @@ var (
 	DefaultHostPort    = 9050
 	DefaultMetricsIP   = "localhost"
 	DefaultMetricsPort = 9070
-	DefaultWorkerNum   = 10
+	DefaultWorkerNum   = 150
+	DefaultSaverNum    = 150
 
 	// Not using yaml files so far
 	DefaultConfigFile = "config/example.yaml"
