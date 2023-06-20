@@ -26,6 +26,8 @@ type Crawler struct {
 
 	// prometheus
 
+	// amount of concurrent dialers
+	concurrentDialers int
 }
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
@@ -34,7 +36,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create metrics module
 
 	// create db crawler
-	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.SaverNum)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.ConcurrentSavers)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
@@ -57,17 +59,13 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		ctx = context.WithValue(ctx, "File", conf.File)
 	}
 
-	// set the number of workers if provided
-	if conf.WorkerNum != 0 {
-		ctx = context.WithValue(ctx, "Workers", conf.WorkerNum)
-	}
-
 	// create the discovery modules
 
 	crwl := &Crawler{
-		ctx:  ctx,
-		host: host,
-		db:   db,
+		ctx:               ctx,
+		host:              host,
+		db:                db,
+		concurrentDialers: conf.ConcurrentDialers,
 	}
 
 	// add all the metrics for each module to the prometheus endp
@@ -95,13 +93,11 @@ func (c *Crawler) Run() error {
 		logrus.Debug("Finish fill connChan")
 	}()
 
-	// init the peer connections
-	workersAmount := c.ctx.Value("Workers").(int)
-
+	// start workers to connect to peers
 	var wg sync.WaitGroup
 
-	logrus.Info("Starting ", workersAmount, " workers to connect to peers")
-	for i := 0; i < workersAmount; i++ {
+	logrus.Info("Starting ", c.concurrentDialers, " workers to connect to peers")
+	for i := 0; i < c.concurrentDialers; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

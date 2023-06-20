@@ -8,27 +8,27 @@ import (
 var ()
 
 type CrawlerRunConf struct {
-	LogLevel    string `yaml:"log-level"`
-	DbEndpoint  string `yaml:"db-endpoint"`
-	HostIP      string `yaml:"ip"`
-	HostPort    int    `yaml:"port"`
-	MetricsIP   string `yaml:"metrics-ip"`
-	MetricsPort int    `yaml:"metics-port"`
-	File        string `yaml:"csv-file"`
-	WorkerNum   int    `yaml:"worker-num"`
-	SaverNum    int    `yaml:"saver-num"`
+	LogLevel          string `yaml:"log-level"`
+	DbEndpoint        string `yaml:"db-endpoint"`
+	HostIP            string `yaml:"ip"`
+	HostPort          int    `yaml:"port"`
+	MetricsIP         string `yaml:"metrics-ip"`
+	MetricsPort       int    `yaml:"metics-port"`
+	File              string `yaml:"csv-file"`
+	ConcurrentDialers int    `yaml:"concurrent-dialers"`
+	ConcurrentSavers  int    `yaml:"concurrent-savers"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
 	return &CrawlerRunConf{
-		LogLevel:    DefaultLogLevel,
-		DbEndpoint:  DefaultDBEndpoint,
-		HostIP:      DefaultHostIP,
-		HostPort:    DefaultHostPort,
-		MetricsIP:   DefaultMetricsIP,
-		MetricsPort: DefaultMetricsPort,
-		WorkerNum:   DefaultWorkerNum,
-		SaverNum:    DefaultSaverNum,
+		LogLevel:          DefaultLogLevel,
+		DbEndpoint:        DefaultDBEndpoint,
+		HostIP:            DefaultHostIP,
+		HostPort:          DefaultHostPort,
+		MetricsIP:         DefaultMetricsIP,
+		MetricsPort:       DefaultMetricsPort,
+		ConcurrentDialers: DefaultConcurrentDialers,
+		ConcurrentSavers:  DefaultConcurrentSavers,
 	}
 }
 
@@ -61,11 +61,11 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	if ctx.IsSet("file") {
 		c.File = ctx.String("file")
 	}
-	if ctx.IsSet("worker-num") {
-		c.WorkerNum = ctx.Int("worker-num")
+	if ctx.IsSet("concurrent-dialers") {
+		c.ConcurrentDialers = ctx.Int("concurrent-dialers")
 	}
-	if ctx.IsSet("saver-num") {
-		c.SaverNum = ctx.Int("saver-num")
+	if ctx.IsSet("concurrent-savers") {
+		c.ConcurrentSavers = ctx.Int("concurrent-savers")
 	}
 	return nil
 }
