@@ -69,10 +69,10 @@ var RunCommand = &cli.Command{
 			EnvVars: []string{"RAGNO_WORKER_NUM"},
 		},
 		&cli.StringFlag{
-			Name:    "savers-num",
+			Name:    "saver-num",
 			Usage:   "Number of workers that will be used to save into the DB",
 			Aliases: []string{"s"},
-			EnvVars: []string{"RAGNO_SAVERS_NUM"},
+			EnvVars: []string{"RAGNO_SAVER_NUM"},
 		},
 	},
 }
