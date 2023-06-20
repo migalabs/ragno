@@ -20,6 +20,7 @@ type CrawlerRunConf struct {
 	File        string `yaml:"csv-file"`
 	Enr         string `yaml:"enr"`
 	WorkerNum   int    `yaml:"worker-num"`
+	SaverNum    int    `yaml:"saver-num"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
@@ -31,6 +32,7 @@ func NewDefaultRun() *CrawlerRunConf {
 		MetricsIP:   DefaultMetricsIP,
 		MetricsPort: DefaultMetricsPort,
 		WorkerNum:   DefaultWorkerNum,
+		SaverNum:    DefaultSaverNum,
 	}
 }
 
@@ -62,6 +64,9 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	}
 	if ctx.IsSet("worker-num") {
 		c.WorkerNum = ctx.Int("worker-num")
+	}
+	if ctx.IsSet("saver-num") {
+		c.SaverNum = ctx.Int("saver-num")
 	}
 	return nil
 }
