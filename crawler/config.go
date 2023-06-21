@@ -14,7 +14,7 @@ var (
 	DefaultMetricsIP         = "localhost"
 	DefaultMetricsPort       = 9070
 	DefaultConcurrentDialers = 150
-	DefaultConcurrentSavers  = 150
+	DefaultConcurrentSavers  = 2
 
 	// Not using yaml files so far
 	DefaultConfigFile = "config/example.yaml"
