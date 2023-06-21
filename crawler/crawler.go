@@ -57,7 +57,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		return nil, err
 	}
 
-	connChan := make(chan *modules.ELNode, 1000)
+	connChan := make(chan *modules.ELNode, conf.ConcurrentDialers)
 
 	discConf := peerDisc.PeerDiscovererConf{
 		SendingChan: connChan,
