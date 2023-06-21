@@ -2,29 +2,26 @@ package peerDiscoverer
 
 import (
 	"github.com/cortze/ragno/modules"
+	"github.com/sirupsen/logrus"
 )
 
 type Discv4PeerDiscoverer struct {
-	sendingChan chan *modules.ELNode
-	port        int
+	port int
 }
 
-func NewDisv4PeerDiscoverer(conf PeerDiscovererConf) (PeerDiscoverer, error) {
+func NewDisv4PeerDiscoverer(port int) (PeerDiscoverer, error) {
+	logrus.Info("Using Discv4 peer discoverer")
+
 	disc := &Discv4PeerDiscoverer{
-		sendingChan: conf.SendingChan,
-		port:        conf.Port,
+		port: port,
 	}
 	return disc, nil
 }
 
-func (c *Discv4PeerDiscoverer) Run() error {
+func (c *Discv4PeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
 	return nil
 }
 
-func (c *Discv4PeerDiscoverer) Channel() chan *modules.ELNode {
-	return c.sendingChan
-}
-
-func (c *Discv4PeerDiscoverer) sendNodes(node *modules.ELNode) {
-	c.sendingChan <- node
+func (c *Discv4PeerDiscoverer) sendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
+	sendingChan <- node
 }

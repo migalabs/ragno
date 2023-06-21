@@ -57,20 +57,14 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		return nil, err
 	}
 
-	connChan := make(chan *modules.ELNode, conf.ConcurrentDialers)
-
-	discConf := peerDisc.PeerDiscovererConf{
-		SendingChan: connChan,
-	}
-
-	// set the file to read the enrs from if provided
+	// create the peer discoverer
+	var discoverer peerDisc.PeerDiscoverer
 	if conf.File != "" {
-		discConf.Type = peerDisc.CsvType
-		discConf.File = conf.File
+		discoverer, err = peerDisc.NewCSVPeerDiscoverer(conf.File)
 	} else {
-		discConf.Type = peerDisc.Discv4Type
+		// TODO: add the port to the config
+		discoverer, err = peerDisc.NewDisv4PeerDiscoverer(0)
 	}
-	discoverer, err := peerDisc.NewPeerDiscoverer(ctx, discConf)
 	if err != nil {
 		logrus.Error("Couldn't create peer discoverer")
 		return nil, err
@@ -94,12 +88,12 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 func (c *Crawler) Run() error {
 
 	// channel to receive the peers from the peer discoverer
-	peerChan := c.peerDisc.Channel()
+	connChan := make(chan *modules.ELNode, c.concurrentDialers)
 
 	// start the peer discoverer
 	go func() {
 		logrus.Info("Starting peer discoverer")
-		err := c.peerDisc.Run()
+		err := c.peerDisc.Run(connChan)
 		if err != nil {
 			logrus.Error("Error in peer discoverer: ", err)
 		}
@@ -115,7 +109,7 @@ func (c *Crawler) Run() error {
 			defer wg.Done()
 			for {
 				select {
-				case peer := <-peerChan:
+				case peer := <-connChan:
 					// try to connect to the peer
 					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
 					c.Connect(peer)
