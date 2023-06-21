@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/modules"
 )
 
 const (
