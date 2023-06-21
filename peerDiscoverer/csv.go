@@ -3,6 +3,7 @@ package peerDiscoverer
 import (
 	"github.com/cortze/ragno/csv"
 	"github.com/cortze/ragno/modules"
+	"github.com/sirupsen/logrus"
 )
 
 type CsvPeerDiscoverer struct {
@@ -24,20 +25,19 @@ func NewCSVPeerDiscoverer(conf PeerDiscovererConf) (PeerDiscoverer, error) {
 }
 
 func (c *CsvPeerDiscoverer) Run() error {
-	// get all the lines from the CSV
-	lines, err := c.csvImporter.Items()
-	if err != nil {
-		return err
-	}
-	peers, err := c.ParseCsvToNodeInfo(lines)
+	// Get all the peers from the csv file
+	logrus.Trace("Reading peers from csv file")
+	peers, err := c.csvImporter.ReadELNodes()
 	if err != nil {
 		return err
 	}
 
+	logrus.Trace("Sending peers to sending channel")
 	// send the peers to the sending channel
 	for _, peer := range peers {
 		c.sendNodes(peer)
 	}
+	logrus.Trace("Finished sending peers to sending channel")
 
 	return nil
 }
@@ -48,25 +48,4 @@ func (c *CsvPeerDiscoverer) Channel() chan *modules.ELNode {
 
 func (c *CsvPeerDiscoverer) sendNodes(node *modules.ELNode) {
 	c.sendingChan <- node
-}
-
-func (c *CsvPeerDiscoverer) ParseCsvToNodeInfo(lines [][]string) ([]*modules.ELNode, error) {
-	// remove the header
-	lines = lines[1:]
-
-	// create the list of ELNodeInfo
-	enrs := make([]*modules.ELNode, 0, len(lines)-1)
-
-	// parse the file
-	for _, line := range lines {
-		// create the modules.ELNode
-		elNodeInfo := new(modules.ELNode)
-		elNodeInfo.Enode = modules.ParseStringToEnr(line[csv.ENR])
-		elNodeInfo.Enr = line[csv.ENR]
-		elNodeInfo.FirstTimeSeen = line[csv.FIRST_SEEN]
-		elNodeInfo.LastTimeSeen = line[csv.LAST_SEEN]
-		// add the struct to the list
-		enrs = append(enrs, elNodeInfo)
-	}
-	return enrs, nil
 }
