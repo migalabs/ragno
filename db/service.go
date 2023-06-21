@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -10,8 +9,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-
-	"github.com/cortze/ragno/modules"
 )
 
 const (
@@ -37,7 +34,7 @@ type PostgresDBService struct {
 	psqlPool      *pgxpool.Pool
 	wgDBWriters   sync.WaitGroup
 
-	writeChan chan Model // Receive tasks to persist
+	writeChan chan Persistable // Receive persist requests
 	stop      bool
 	workerNum int
 }
@@ -63,7 +60,7 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 		ctx:           ctx,
 		connectionUrl: url,
 		psqlPool:      psqlPool,
-		writeChan:     make(chan Model, workerNum),
+		writeChan:     make(chan Persistable, workerNum),
 		workerNum:     workerNum,
 	}
 	// init the psql db
@@ -108,20 +105,7 @@ func (p *PostgresDBService) runWriters() {
 		loop:
 			for {
 				select {
-				case task := <-p.writeChan:
-
-					var err error
-					persis := NewPersistable()
-
-					switch task.Type() {
-					case modules.NodeModel:
-						q, args := ELNodeOperation(task.(modules.ELNode))
-						persis.query = q
-						persis.values = append(persis.values, args...)
-					default:
-						err = fmt.Errorf("could not figure out the type of write task")
-						wlog.Errorf("could not process incoming task, %s", err)
-					}
+				case persis := <-p.writeChan:
 					// ckeck if there is any new query to add
 					if !persis.isEmpty() {
 						batcher.AddQuery(persis)
@@ -155,13 +139,4 @@ func (p *PostgresDBService) runWriters() {
 		}(i)
 	}
 
-}
-
-func (p *PostgresDBService) Persist(w Model) {
-	p.writeChan <- w
-}
-
-type Model interface { // simply to enforce a Model interface
-	// For now we simply support insert operations
-	Type() modules.ModelType // whether insert is activated for this model
 }

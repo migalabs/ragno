@@ -114,7 +114,7 @@ func (c *Crawler) Run() error {
 					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
 					c.Connect(peer)
 					// save the peer
-					c.db.Persist(*peer)
+					c.db.PersistNode(*peer)
 				case <-c.ctx.Done():
 					return
 				}
