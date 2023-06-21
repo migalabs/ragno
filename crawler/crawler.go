@@ -141,6 +141,16 @@ func (c *Crawler) Run() error {
 	return nil
 }
 
+func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
+
+	nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
+	if nodeInfo.Hinfo.Error != nil {
+		logrus.Trace("Node: ", nodeInfo.Enr, ": ", nodeInfo.Hinfo.Error)
+	} else {
+		logrus.Trace("Node: ", nodeInfo.Enr, " connected")
+	}
+}
+
 func (c *Crawler) Close() {
 	// finish discovery
 
