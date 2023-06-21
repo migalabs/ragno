@@ -21,6 +21,7 @@ type Crawler struct {
 	db *db.PostgresDBService
 
 	// discovery
+	peerDisc peerDisc.PeerDiscoverer
 
 	// peer connections
 
@@ -56,9 +57,23 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		return nil, err
 	}
 
+	connChan := make(chan *modules.ELNode, 1000)
+
+	discConf := peerDisc.PeerDiscovererConf{
+		SendingChan: connChan,
+	}
+
 	// set the file to read the enrs from if provided
 	if conf.File != "" {
-		ctx = context.WithValue(ctx, "File", conf.File)
+		discConf.Type = peerDisc.CsvType
+		discConf.File = conf.File
+	} else {
+		discConf.Type = peerDisc.Discv4Type
+	}
+	discoverer, err := peerDisc.NewPeerDiscoverer(ctx, discConf)
+	if err != nil {
+		logrus.Error("Couldn't create peer discoverer")
+		return nil, err
 	}
 
 	// create the discovery modules
@@ -68,6 +83,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		host:              host,
 		db:                db,
 		concurrentDialers: conf.ConcurrentDialers,
+		peerDisc:          discoverer,
 	}
 
 	// add all the metrics for each module to the prometheus endp
@@ -77,33 +93,13 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 
 func (c *Crawler) Run() error {
 
-	// channel to send peers to the workers
-	connChan := make(chan *modules.ELNode, 1000)
-
-	discConf := peerDisc.PeerDiscovererConf{
-		SendingChan: connChan,
-	}
-
-	// create the discoverer depending if a csv is provided or not
-	csvFile := c.ctx.Value("File")
-	if csvFile != nil && csvFile.(string) != "" {
-		discConf.Type = peerDisc.CsvType
-		discConf.File = csvFile.(string)
-	} else {
-		logrus.Info("No list of peers provided, starting discovery")
-		discConf.Type = peerDisc.Discv4Type
-	}
-
-	discoverer, err := peerDisc.NewPeerDiscoverer(c.ctx, discConf)
-	if err != nil {
-		logrus.Error("Couldn't create peer discoverer")
-		return err
-	}
+	// channel to receive the peers from the peer discoverer
+	peerChan := c.peerDisc.Channel()
 
 	// start the peer discoverer
 	go func() {
 		logrus.Info("Starting peer discoverer")
-		err := discoverer.Run()
+		err := c.peerDisc.Run()
 		if err != nil {
 			logrus.Error("Error in peer discoverer: ", err)
 		}
@@ -119,7 +115,7 @@ func (c *Crawler) Run() error {
 			defer wg.Done()
 			for {
 				select {
-				case peer := <-connChan:
+				case peer := <-peerChan:
 					// try to connect to the peer
 					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
 					c.Connect(peer)

@@ -5,7 +5,7 @@ import (
 )
 
 type Discv4PeerDiscoverer struct {
-	sendingChan chan<- *modules.ELNode
+	sendingChan chan *modules.ELNode
 	port        int
 }
 
@@ -19,6 +19,10 @@ func NewDisv4PeerDiscoverer(conf PeerDiscovererConf) (PeerDiscoverer, error) {
 
 func (c *Discv4PeerDiscoverer) Run() error {
 	return nil
+}
+
+func (c *Discv4PeerDiscoverer) Channel() chan *modules.ELNode {
+	return c.sendingChan
 }
 
 func (c *Discv4PeerDiscoverer) sendNodes(node *modules.ELNode) {
