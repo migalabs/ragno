@@ -1,4 +1,4 @@
-package utils
+package modules
 
 import "github.com/ethereum/go-ethereum/p2p/enode"
 

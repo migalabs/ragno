@@ -3,7 +3,6 @@ package peerDiscoverer
 import (
 	"github.com/cortze/ragno/pkg/csv"
 	"github.com/cortze/ragno/pkg/modules"
-	"github.com/cortze/ragno/pkg/utils"
 )
 
 type CsvPeerDiscoverer struct {
@@ -58,7 +57,7 @@ func (c *CsvPeerDiscoverer) ParseCsvToNodeInfo(lines [][]string) ([]*modules.ELN
 	for _, line := range lines {
 		// create the modules.ELNode
 		elNodeInfo := new(modules.ELNode)
-		elNodeInfo.Enode = utils.ParseStringToEnr(line[csv.ENR])
+		elNodeInfo.Enode = modules.ParseStringToEnr(line[csv.ENR])
 		elNodeInfo.Enr = line[csv.ENR]
 		elNodeInfo.FirstTimeSeen = line[csv.FIRST_SEEN]
 		elNodeInfo.LastTimeSeen = line[csv.LAST_SEEN]
