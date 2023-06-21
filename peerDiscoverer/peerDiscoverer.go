@@ -10,13 +10,15 @@ import (
 type PeerDiscoverer interface {
 	// Run starts the peer discovery process or get the nodes from the file
 	Run() error
+	// Channel returns the channel where the nodes are sent
+	Channel() chan *modules.ELNode
 	// sendNodes sends the nodes to the channel
 	sendNodes(node *modules.ELNode)
 }
 
 type PeerDiscovererConf struct {
 	Type        DiscovererType
-	SendingChan chan<- *modules.ELNode
+	SendingChan chan *modules.ELNode
 	File        string
 	Port        int
 }

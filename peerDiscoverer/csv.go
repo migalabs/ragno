@@ -6,7 +6,7 @@ import (
 )
 
 type CsvPeerDiscoverer struct {
-	sendingChan chan<- *modules.ELNode
+	sendingChan chan *modules.ELNode
 	csvImporter *csv.CSVImporter
 }
 
@@ -40,6 +40,10 @@ func (c *CsvPeerDiscoverer) Run() error {
 	}
 
 	return nil
+}
+
+func (c *CsvPeerDiscoverer) Channel() chan *modules.ELNode {
+	return c.sendingChan
 }
 
 func (c *CsvPeerDiscoverer) sendNodes(node *modules.ELNode) {
