@@ -117,7 +117,9 @@ func insertNode(node modules.ELNode) (string, []interface{}) {
 	return InsertNodeInfo, resultArgs
 }
 
-func ELNodeOperation(node modules.ELNode) (string, []interface{}) {
-	q, args := insertNode(node)
-	return q, args
+func (d *PostgresDBService) PersistNode(node modules.ELNode) {
+	persis := NewPersistable()
+	persis.query, persis.values = insertNode(node)
+
+	d.writeChan <- persis
 }
