@@ -1,27 +1,27 @@
 package cmd
 
 import (
-	// "fmt"
-	// "os"
-	// "sync"
-	"time"
-// 
-	// "github.com/cortze/ragno/crawler"
-	// "github.com/cortze/ragno/crawler/db"
-// 
-	// "github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
-	// "github.com/ethereum/go-ethereum/p2p/enode"
-	// "github.com/joho/godotenv"
-	// "github.com/sirupsen/logrus"
+	"github.com/cortze/ragno/crawler"
+	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/pkg/utils"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"time"
 )
 
 var RWDeadline time.Duration = 20 * time.Second // for the read and write operations with the remote remoteNodes
 
+var (
+	DefaultHostIP   = "0.0.0.0"
+	DefaultHostPort = 9050
+	DefaultLogLevel = "info"
+)
+
 var connectOptions struct {
-	lvl  string
-	enr  string
-	file string
+	lvl      string
+	enr      string
+	hostIP   string
+	hostPort int
 }
 
 var ConnectCmd = &cli.Command{
@@ -38,168 +38,68 @@ var ConnectCmd = &cli.Command{
 			Destination: &connectOptions.lvl,
 		},
 		&cli.StringFlag{
+			Name:        "host-ip",
+			Usage:       "IP address of the host",
+			Aliases:     []string{"i"},
+			Destination: &connectOptions.hostIP,
+		},
+		&cli.IntFlag{
+			Name:        "host-port",
+			Usage:       "Port of the host",
+			Aliases:     []string{"p"},
+			Destination: &connectOptions.hostPort,
+		},
+		&cli.StringFlag{
 			Name:        "enr",
 			Usage:       "Enr of the node to connect",
 			Aliases:     []string{"e"},
-			Required:    false,
+			Required:    true,
 			Destination: &connectOptions.enr,
-		},
-		&cli.StringFlag{
-			Name:        "file",
-			Usage:       "Path to the csv file with the Enr records to connect",
-			Aliases:     []string{"f"},
-			Required:    false,
-			Destination: &connectOptions.file,
 		},
 	},
 }
 
 func connect(ctx *cli.Context) error {
-	// 	logrus.SetLevel(crawler.ParseLogLevel(connectOptions.lvl))
+	// create a host
+	if connectOptions.hostIP == "" {
+		connectOptions.hostIP = DefaultHostIP
+	}
+	if connectOptions.hostPort == 0 {
+		connectOptions.hostPort = DefaultHostPort
+	}
 
-	// 	err := godotenv.Load("../.env")
-	// 	if err != nil {
-	// 		logrus.Error(".env file couldn't be loaded...")
-	// 		panic(err)
-	// 	}
+	host, err := crawler.NewHost(
+		ctx.Context,
+		connectOptions.hostIP,
+		connectOptions.hostPort,
+	)
+	if err != nil {
+		logrus.Error("failed to create host:")
+		return err
+	}
 
-	// 	db_name := os.Getenv("POSTGRES_DB")
-	// 	user_name := os.Getenv("POSTGRES_USER")
-	// 	password := os.Getenv("POSTGRES_PASSWORD")
-	// 	postrgres_host := os.Getenv("POSTGRES_HOST")
-	// 	port := os.Getenv("POSTGRES_PORT")
+	ElNode := modules.ELNode{
+		Enr:           connectOptions.enr,
+		Enode:         utils.ParseStringToEnr(connectOptions.enr),
+		LastTimeSeen:  time.Now().String(),
+		FirstTimeSeen: time.Now().String(),
+	}
 
-	// 	conn_str := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", user_name, password, postrgres_host, port, db_name)
+	ElNode.Hinfo = host.Connect(ElNode.Enode)
+	if ElNode.Hinfo.Error != nil {
+		logrus.Info("Couldn't connect to Node: ", ElNode.Enr, ": ", ElNode.Hinfo.Error)
+		return nil
+	}
 
-	// 	// persister and batchsize ????
-	// 	db_manager, err := db.New(ctx.Context, conn_str, 10, 5)
-	// 	if err != nil {
-	// 		logrus.Error("Couldn't init DB")
-	// 		return err
-	// 	}
-
-	// 	host, err := crawler.NewHost(
-	// 		ctx.Context,
-	// 		"0.0.0.0",
-	// 		9045,
-	// 		// default configuration so far
-	// 	)
-	// 	if err != nil {
-	// 		logrus.Error("failed to create host:")
-	// 		return err
-	// 	}
-
-	// 	if connectOptions.enr == "" && connectOptions.file == "" {
-	// 		logrus.Warn("no Enr or File was provided")
-	// 		fmt.Println(connectOptions)
-	// 		return nil
-	// 	}
-
-	// 	// read the number of enrs
-	// 	connectPeers := make([]*enode.Node, 0)
-	// 	connectPeers_info := make([][]string, 0)
-
-	// 	if connectOptions.enr != "" {
-	// 		rEnr := crawler.ParseStringToEnr(connectOptions.enr)
-	// 		connectPeers = append(connectPeers, rEnr)
-
-	// 		currentTime := time.Now()
-	// 		// Format the time according to the desired layout
-	// 		layout := "2006-01-02 15:04:05.000000 -0700 MST m=+1500.000000000"
-	// 		timeString := currentTime.Format(layout)
-	// 		info := []string{timeString, timeString, connectOptions.enr}
-
-	// 		connectPeers_info = append(connectPeers_info, info)
-	// 	}
-
-	// 	// read the enrs from the given csv file
-	// 	if connectOptions.file != "" {
-	// 		csvImporter, err := crawler.NewCsvImporter(connectOptions.file)
-	// 		if err != nil {
-	// 			logrus.Error(err)
-	// 			goto connecter
-	// 		}
-	// 		enrs := csvImporter.Items()
-	// 		info := csvImporter.Infos()
-	// 		for i, e := range enrs {
-	// 			connectPeers = append(connectPeers, e)
-	// 			connectPeers_info = append(connectPeers_info, info[i])
-	// 		}
-	// 	}
-
-	// connecter:
-	// 	// connect and identify the peer
-	// 	logrus.Infof("attempting to connect %d nodes", len(connectPeers))
-	// 	var nodesToInsert []struct {
-	// 		node  *enode.Node
-	// 		info  []string
-	// 		hinfo ethtest.HandshakeDetails
-	// 	}
-
-	// 	ticker := time.NewTicker(10 * time.Second)
-	// 	defer ticker.Stop()
-
-	// 	go func() {
-	// 		for {
-	// 			select {
-	// 			case <-ticker.C:
-	// 				if len(nodesToInsert) > 0 {
-	// 					for _, nodeToInsert := range nodesToInsert {
-	// 						pubKey := crawler.PubkeyToString(nodeToInsert.node.Pubkey())
-	// 						err := db_manager.InsertElNode(nodeToInsert.node, nodeToInsert.info, nodeToInsert.hinfo, pubKey)
-	// 						if err != nil {
-	// 							logrus.Error(err, "Node couldn't be saved in DB")
-	// 							panic(err)
-	// 						} else {
-	// 							logrus.Info("Node successfully saved in DB")
-	// 						}
-	// 					}
-	// 					nodesToInsert = nil // Clear the slice after saving
-	// 				} else {
-	// 					continue
-	// 				}
-	// 			}
-	// 		}
-	// 	}()
-
-	// 	var wg sync.WaitGroup
-
-	// 	for i, remoteNode := range connectPeers {
-	// 		wg.Add(1)
-	// 		go func(node *enode.Node, info []string) {
-	// 			defer wg.Done()
-
-	// 			logrus.Info("connecting to: ", node)
-	// 			hinfo := host.Connect(node)
-	// 			if hinfo.Error != nil {
-	// 				logrus.Error(hinfo.Error)
-	// 				logrus.Error(`couldn't connect to:`, node.String())
-	// 			}
-
-	// 			nodesToInsert = append(nodesToInsert, struct {
-	// 				node  *enode.Node
-	// 				info  []string
-	// 				hinfo ethtest.HandshakeDetails
-	// 			}{
-	// 				node:  node,
-	// 				info:  info,
-	// 				hinfo: hinfo,
-	// 			})
-	// 		}(remoteNode, connectPeers_info[i])
-	// 	}
-
-	// 	wg.Wait()
-
+	logrus.Info("Connected to Node: ", ElNode.Enr)
+	logrus.Info("Node's IP: ", ElNode.Enode.IP())
+	logrus.Info("Node's TCP: ", ElNode.Enode.TCP())
+	logrus.Info("Node's UDP: ", ElNode.Enode.UDP())
+	logrus.Info("Node's ID: ", ElNode.Enode.ID().String())
+	logrus.Info("Node's Pubkey: ", crawler.PubkeyToString(ElNode.Enode.Pubkey()))
+	logrus.Info("Node's Seq: ", ElNode.Enode.Seq())
+	logrus.Info("Node's Client: ", ElNode.Hinfo.ClientName)
+	logrus.Info("Node's Capabilities: ", ElNode.Hinfo.Capabilities)
+	logrus.Info("Node's SoftwareInfo: ", ElNode.Hinfo.SoftwareInfo)
 	return nil
 }
-
-// logrus.Infof("remoteNode %s successfully connected:", remoteNode.String())
-// fmt.Println("ID:", remoteNode.ID().String())
-// fmt.Println("PK:", crawler.PubkeyToString(remoteNode.Pubkey()))
-// fmt.Println("Seq:", remoteNode.Seq())
-// fmt.Println("IP:", remoteNode.IP())
-// fmt.Println("TCP:", remoteNode.TCP())
-// fmt.Println("Client:", hinfo.ClientName)
-// fmt.Println("Capabilities:", hinfo.Capabilities)
-// fmt.Println("SoftwareInfo:", hinfo.SoftwareInfo)
-// fmt.Println("Error:", hinfo.Error)
