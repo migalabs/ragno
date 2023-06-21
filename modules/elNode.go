@@ -12,7 +12,3 @@ type ELNode struct {
 	FirstTimeSeen string
 	LastTimeSeen  string
 }
-
-func (n ELNode) Type() ModelType {
-	return NodeModel
-}
