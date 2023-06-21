@@ -1,7 +1,7 @@
 package crawler
 
 import (
-	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/modules"
 	"github.com/sirupsen/logrus"
 )
 

@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cortze/ragno/crawler/db"
+	"github.com/cortze/ragno/db"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 

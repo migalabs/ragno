@@ -1,7 +1,7 @@
 package peerDiscoverer
 
 import (
-	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/modules"
 )
 
 type Discv4PeerDiscoverer struct {

@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cortze/ragno/crawler/db"
-	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/db"
+	"github.com/cortze/ragno/modules"
 	"github.com/sirupsen/logrus"
 
-	peerDisc "github.com/cortze/ragno/crawler/peerDiscoverer"
+	peerDisc "github.com/cortze/ragno/peerDiscoverer"
 )
 
 type Crawler struct {

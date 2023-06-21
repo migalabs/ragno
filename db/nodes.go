@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/modules"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
