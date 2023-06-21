@@ -1,8 +1,8 @@
 package peerDiscoverer
 
 import (
-	"github.com/cortze/ragno/pkg/csv"
-	"github.com/cortze/ragno/pkg/modules"
+	"github.com/cortze/ragno/csv"
+	"github.com/cortze/ragno/modules"
 )
 
 type CsvPeerDiscoverer struct {

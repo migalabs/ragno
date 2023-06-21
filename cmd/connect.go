@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"github.com/cortze/ragno/crawler"
-	"github.com/cortze/ragno/pkg/modules"
-	"github.com/cortze/ragno/pkg/utils"
+	"github.com/cortze/ragno/modules"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"time"
@@ -80,7 +79,7 @@ func connect(ctx *cli.Context) error {
 
 	ElNode := modules.ELNode{
 		Enr:           connectOptions.enr,
-		Enode:         utils.ParseStringToEnr(connectOptions.enr),
+		Enode:         modules.ParseStringToEnr(connectOptions.enr),
 		LastTimeSeen:  time.Now().String(),
 		FirstTimeSeen: time.Now().String(),
 	}
