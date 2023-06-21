@@ -1,13 +1,11 @@
 package db
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"strings"
 
 	"github.com/cortze/ragno/modules"
 
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
@@ -26,7 +24,7 @@ var (
 		ip TEXT NOT NULL,
 		tcp INT NOT NULL,
 		client_name TEXT NOT NULL,
-		capabilities TEXT NOT NULL,
+		capabilities TEXT[] NOT NULL,
 		software_info INT NOT NULL,
 		error TEXT,
 
@@ -88,34 +86,33 @@ func (d *PostgresDBService) dropNodeTables() error {
 }
 
 func insertNode(node modules.ELNode) (string, []interface{}) {
+	pubBytes := crypto.FromECDSAPub(node.Enode.Pubkey())
+	pubKey := hex.EncodeToString(pubBytes)
+
+	capabilities := make([]string, 0, len(node.Hinfo.Capabilities))
+	for _, cap := range node.Hinfo.Capabilities {
+		capabilities = append(capabilities, cap.String())
+	}
+
+	errorMessage := ""
+	if node.Hinfo.Error != nil {
+		errorMessage = strings.Replace(node.Hinfo.Error.Error(), "'", "''", -1) // Escape single quote with two single quotes
+	}
+
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
 	resultArgs = append(resultArgs, "0")
 	resultArgs = append(resultArgs, node.FirstTimeSeen)
 	resultArgs = append(resultArgs, node.LastTimeSeen)
-	resultArgs = append(resultArgs, func(pub *ecdsa.PublicKey) string {
-		pubBytes := crypto.FromECDSAPub(pub)
-		return hex.EncodeToString(pubBytes)
-	}(node.Enode.Pubkey()))
+	resultArgs = append(resultArgs, pubKey)
 	resultArgs = append(resultArgs, node.Enr)
 	resultArgs = append(resultArgs, node.Enode.Seq())
 	resultArgs = append(resultArgs, node.Enode.IP())
 	resultArgs = append(resultArgs, node.Enode.TCP())
 	resultArgs = append(resultArgs, node.Hinfo.ClientName)
-	resultArgs = append(resultArgs, func(hinfo ethtest.HandshakeDetails) string {
-		capabilities := ""
-		for _, cap := range hinfo.Capabilities {
-			capabilities = capabilities + cap.String() + ","
-		}
-		return capabilities
-	}(node.Hinfo))
+	resultArgs = append(resultArgs, capabilities)
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
-	resultArgs = append(resultArgs, func(hinfo ethtest.HandshakeDetails) string {
-		if hinfo.Error != nil {
-			return strings.Replace(hinfo.Error.Error(), "'", "''", -1) // Escape single quote with two single quotes
-		}
-		return ""
-	}(node.Hinfo))
+	resultArgs = append(resultArgs, errorMessage)
 
 	return InsertNodeInfo, resultArgs
 }
