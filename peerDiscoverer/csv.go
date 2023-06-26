@@ -31,6 +31,7 @@ func (c *CsvPeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
 	if err != nil {
 		return err
 	}
+	logrus.Debug("Amount of peers read from csv file: ", len(peers))
 
 	logrus.Trace("Sending peers to sending channel")
 	// send the peers to the sending channel
