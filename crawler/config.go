@@ -15,6 +15,8 @@ var (
 	DefaultMetricsPort       = 9070
 	DefaultConcurrentDialers = 150
 	DefaultConcurrentSavers  = 2
+	DefaultRetryAmount       = 3
+	DefaultRetryDelay        = 8
 
 	// Not using yaml files so far
 	DefaultConfigFile = "config/example.yaml"
@@ -30,6 +32,8 @@ type CrawlerRunConf struct {
 	File              string `yaml:"csv-file"`
 	ConcurrentDialers int    `yaml:"concurrent-dialers"`
 	ConcurrentSavers  int    `yaml:"concurrent-savers"`
+	RetryAmount       int    `yaml:"retry-amount"`
+	RetryDelay        int    `yaml:"retry-delay"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
@@ -42,6 +46,8 @@ func NewDefaultRun() *CrawlerRunConf {
 		MetricsPort:       DefaultMetricsPort,
 		ConcurrentDialers: DefaultConcurrentDialers,
 		ConcurrentSavers:  DefaultConcurrentSavers,
+		RetryAmount:       DefaultRetryAmount,
+		RetryDelay:        DefaultRetryDelay,
 	}
 }
 
@@ -80,5 +86,12 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	if ctx.IsSet("concurrent-savers") {
 		c.ConcurrentSavers = ctx.Int("concurrent-savers")
 	}
+	if ctx.IsSet("retry-amount") {
+		c.RetryAmount = ctx.Int("retry-amount")
+	}
+	if ctx.IsSet("retry-delay") {
+		c.RetryDelay = ctx.Int("retry-delay")
+	}
+
 	return nil
 }
