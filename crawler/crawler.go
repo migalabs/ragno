@@ -31,6 +31,12 @@ type Crawler struct {
 
 	// amount of concurrent dialers
 	concurrentDialers int
+
+	// amount of times to retry a connection
+	retryAmount int
+
+	// delay between retries (in seconds)
+	retryDelay int
 }
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
@@ -77,6 +83,8 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		host:              host,
 		db:                db,
 		concurrentDialers: conf.ConcurrentDialers,
+		retryAmount:       conf.RetryAmount,
+		retryDelay:        conf.RetryDelay,
 		peerDisc:          discoverer,
 	}
 
