@@ -3,6 +3,7 @@ package crawler
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/modules"
@@ -141,12 +142,27 @@ func (c *Crawler) Run() error {
 
 func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 
-	nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
-	if nodeInfo.Hinfo.Error != nil {
-		logrus.Trace("Node: ", nodeInfo.Enr, ": ", nodeInfo.Hinfo.Error)
-	} else {
-		logrus.Trace("Node: ", nodeInfo.Enr, " connected")
+	// try to connect to the peer
+	for i := 0; i < c.retryAmount; i++ {
+		nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
+		if nodeInfo.Hinfo.Error == nil {
+			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
+			return
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"retry": i,
+			"error": nodeInfo.Hinfo.Error,
+		}).Trace("Node: ", nodeInfo.Enr, " failed to connect")
+
+		// wait if not the last retry
+		if i < c.retryAmount-1 {
+			time.Sleep(time.Duration(c.retryDelay) * time.Second)
+		}
 	}
+	logrus.WithFields(logrus.Fields{
+		"error": nodeInfo.Hinfo.Error,
+	}).Trace("Couldn't connect to node: ", nodeInfo.Enr)
 }
 
 func (c *Crawler) Close() {
