@@ -18,6 +18,7 @@ USAGE:
 
 COMMANDS:
    discv4   discover4 prints nodes in the discovery4 network
+   run      run connects to nodes provided in csv file and save into postgresql database
    connect  connect and identify any given ENR
    help, h  Shows a list of commands or help for one command
 
