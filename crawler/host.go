@@ -21,7 +21,7 @@ import (
 const (
 	MaxRetries     int           = 3
 	GraceTime      time.Duration = 10 * time.Second
-	DefaultTimeout time.Duration = 10 * time.Second
+	DefaultTimeout time.Duration = 15 * time.Second
 )
 
 type Host struct {
