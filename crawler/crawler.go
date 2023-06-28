@@ -155,10 +155,11 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 			"error": nodeInfo.Hinfo.Error,
 		}).Trace("Node: ", nodeInfo.Enr, " failed to connect")
 
-		// wait if not the last retry
-		if i < c.retryAmount-1 {
-			time.Sleep(time.Duration(c.retryDelay) * time.Second)
+		if i == c.retryAmount-1 || !ShouldRetry(nodeInfo.Hinfo.Error) {
+			break
 		}
+		// wait for the retry delay
+		time.Sleep(time.Duration(c.retryDelay) * time.Second)
 	}
 	logrus.WithFields(logrus.Fields{
 		"error": nodeInfo.Hinfo.Error,
