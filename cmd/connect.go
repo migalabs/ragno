@@ -95,7 +95,7 @@ func connect(ctx *cli.Context) error {
 	logrus.Info("Node's TCP: ", ElNode.Enode.TCP())
 	logrus.Info("Node's UDP: ", ElNode.Enode.UDP())
 	logrus.Info("Node's ID: ", ElNode.Enode.ID().String())
-	logrus.Info("Node's Pubkey: ", crawler.PubkeyToString(ElNode.Enode.Pubkey()))
+	logrus.Info("Node's Pubkey: ", modules.PubkeyToString(ElNode.Enode.Pubkey()))
 	logrus.Info("Node's Seq: ", ElNode.Enode.Seq())
 	logrus.Info("Node's Client: ", ElNode.Hinfo.ClientName)
 	logrus.Info("Node's Capabilities: ", ElNode.Hinfo.Capabilities)

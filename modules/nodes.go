@@ -1,4 +1,4 @@
-package crawler
+package modules
 
 import (
 	"fmt"

@@ -70,6 +70,7 @@ require (
 	golang.org/x/text v0.8.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
+	gopkg.in/urfave/cli.v1 v1.20.0
 )
 
 replace github.com/ethereum/go-ethereum v1.11.6 => ./go-ethereum
