@@ -30,6 +30,12 @@ var RunCommand = &cli.Command{
 			EnvVars:     []string{"RAGNO_DB_ENDPOINT"},
 			DefaultText: crawler.DefaultDBEndpoint,
 		},
+		&cli.IntFlag{
+			Name: "disc-port",
+			Usage: "port that the tool will use for discovery purposes",
+			Aliases: []string{"dp"},
+			EnvVars: []string{"RAGNO_PORT"},
+		},
 		&cli.StringFlag{
 			Name:        "ip",
 			Usage:       "IP that will be assigned to the host",

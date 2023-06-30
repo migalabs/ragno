@@ -9,6 +9,7 @@ var (
 	// crawler host related metrics
 	DefaultLogLevel          = "info"
 	DefaultDBEndpoint        = "postgresql://user:password@localhost:5432/ragno"
+	DefaultDiscPort          = 9045
 	DefaultHostIP            = "0.0.0.0"
 	DefaultHostPort          = 9050
 	DefaultMetricsIP         = "localhost"
@@ -25,6 +26,7 @@ var (
 type CrawlerRunConf struct {
 	LogLevel          string `yaml:"log-level"`
 	DbEndpoint        string `yaml:"db-endpoint"`
+	DiscPort          int    `yaml:"disc-port"`
 	HostIP            string `yaml:"ip"`
 	HostPort          int    `yaml:"port"`
 	MetricsIP         string `yaml:"metrics-ip"`
@@ -40,6 +42,7 @@ func NewDefaultRun() *CrawlerRunConf {
 	return &CrawlerRunConf{
 		LogLevel:          DefaultLogLevel,
 		DbEndpoint:        DefaultDBEndpoint,
+		DiscPort:          DefaultDiscPort,
 		HostIP:            DefaultHostIP,
 		HostPort:          DefaultHostPort,
 		MetricsIP:         DefaultMetricsIP,
@@ -64,6 +67,9 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	}
 	if ctx.IsSet("db-endpoint") {
 		c.DbEndpoint = ctx.String("db-endpoint")
+	}
+	if ctx.IsSet("disc-port") {
+		c.DiscPort = ctx.Int("disc-port")
 	}
 	if ctx.IsSet("ip") {
 		c.HostIP = ctx.String("ip")
