@@ -69,8 +69,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	if conf.File != "" {
 		discoverer, err = peerDisc.NewCSVPeerDiscoverer(conf.File)
 	} else {
-		// TODO: add the port to the config
-		discoverer, err = peerDisc.NewDisv4PeerDiscoverer(0)
+		discoverer, err = peerDisc.NewDisv4PeerDiscoverer(conf.DiscPort)
 	}
 	if err != nil {
 		logrus.Error("Couldn't create peer discoverer")
