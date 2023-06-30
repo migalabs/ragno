@@ -1,30 +1,8 @@
 package crawler
 
 import (
-	"crypto/ecdsa"
-	"encoding/hex"
-
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/sirupsen/logrus"
 )
-
-func ParseBootnodes(bnodes []string) ([]*enode.Node, error) {
-	enodes := make([]*enode.Node, 0, len(bnodes))
-	for _, n := range bnodes {
-		en, err := enode.Parse(enode.ValidSchemes, n)
-		if err != nil {
-			return enodes, err
-		}
-		enodes = append(enodes, en)
-	}
-	return enodes, nil
-}
-
-func PubkeyToString(pub *ecdsa.PublicKey) string {
-	pubBytes := crypto.FromECDSAPub(pub)
-	return hex.EncodeToString(pubBytes)
-}
 
 type Llvl string
 

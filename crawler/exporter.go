@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"os"
+	"github.com/cortze/ragno/modules"
 )
 
 type CsvExporter struct {
@@ -41,7 +42,7 @@ func (c *CsvExporter) writeLine(row string) error {
 	return err
 } 
 
-func (c *CsvExporter) Export(peers []*EthNode) error {
+func (c *CsvExporter) Export(peers []*modules.EthNode) error {
 	// reset index in the file
 	c.f.Seek(0,0)
 	defer c.f.Sync()

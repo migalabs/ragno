@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/cortze/ragno/crawler"
+	"github.com/cortze/ragno/modules"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -101,7 +102,7 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 		return err
 	}
 	bnodes := params.MainnetBootnodes
-	bootnodes, err := crawler.ParseBootnodes(bnodes)
+	bootnodes, err := modules.ParseBootnodes(bnodes)
 	if err != nil {
 		return err
 	}
@@ -146,7 +147,7 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 		"output-file": discv4Configuration.outputFile,
 	}).Info("launching rango discv4")
 	// compose the nodeset
-	nodeSet := crawler.NewEnodeSet()
+	nodeSet := modules.NewEnodeSet()
 	closeC := make(chan struct{})
 	// actuall loop for crawling
 	go func() {
@@ -177,10 +178,10 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 					"UDP": node.UDP(),
 					"TCP": node.TCP(),
 					"seq": node.Seq(),
-					"pubkey": crawler.PubkeyToString(node.Pubkey()),
+					"pubkey": modules.PubkeyToString(node.Pubkey()),
 				}).Debug("new discv4 node")
-				ethNode, err := crawler.NewEthNode(
-					crawler.FromDiscv4Node(node),
+				ethNode, err := modules.NewEthNode(
+					modules.FromDiscv4Node(node),
 				)
 				if err != nil {
 					logrus.Error(errors.Wrap(err, "unable to add new node"))
