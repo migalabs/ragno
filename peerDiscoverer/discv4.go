@@ -104,8 +104,7 @@ func (d *Discv4PeerDiscoverer) runDiscv4Service(ctx *cli.Context, wg *sync.WaitG
 		"ip":   udpAddr.IP.String(),
 		"port": strconv.Itoa(udpAddr.Port),
 	}).Info("launching rango discv4")
-	// compose the nodeset
-	// nodeSet := modules.NewEnodeSet()
+
 	closeC := make(chan struct{})
 	// actuall loop for crawling
 	go func() {
@@ -151,10 +150,6 @@ func (d *Discv4PeerDiscoverer) runDiscv4Service(ctx *cli.Context, wg *sync.WaitG
 					LastTimeSeen:  ethNode.LastT.String(),
 				}
 				d.sendNodes(sendC, &elNode)
-				// err = nodeSet.AddNode(ethNode)
-				// if err != nil {
-				// 	logrus.Error(errors.Wrap(err, "unable to store new node"))
-				// }
 			}
 		}
 	}()
