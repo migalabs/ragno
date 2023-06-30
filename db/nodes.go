@@ -65,7 +65,21 @@ var (
 		$11,
 		$12,
 		$13
-	);`
+	)
+	ON CONFLICT (node_id) DO UPDATE SET 
+		node_id = $1,
+		peer_id = $2,
+		last_seen = $4,
+		public_key = $5,
+		enr = $6,
+		seq_number = $7::bigint,
+		ip = $8,
+		tcp = $9,
+		client_name = $10,
+		capabilities = $11,
+		software_info = $12,
+		error = $13;
+	`
 )
 
 func (d *PostgresDBService) createNodeTable() error {
