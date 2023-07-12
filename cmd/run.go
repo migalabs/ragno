@@ -1,13 +1,8 @@
 package cmd
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/cortze/ragno/crawler"
 
-	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
 
 	"github.com/pkg/errors"
@@ -31,8 +26,8 @@ var RunCommand = &cli.Command{
 			DefaultText: crawler.DefaultDBEndpoint,
 		},
 		&cli.IntFlag{
-			Name: "disc-port",
-			Usage: "port that the tool will use for discovery purposes",
+			Name:    "disc-port",
+			Usage:   "port that the tool will use for discovery purposes",
 			Aliases: []string{"dp"},
 			EnvVars: []string{"RAGNO_PORT"},
 		},
@@ -104,20 +99,10 @@ func RunRagno(ctx *cli.Context) error {
 		return errors.Wrap(err, "error initializing the crawler")
 	}
 
-	// wait untill the process is stoped to close it down
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, syscall.SIGTERM)
-
 	// start the crawler
-	err = ragno.Run()
-	if err != nil {
-		return errors.Wrap(err, "error running the crawler")
-	}
+	ragno.Run()
 
-	// run untill we receive the shutdown
-	sig := <-sigs
-	log.Infof("Received %s signal - Stopping Ragno with control...\n", sig.String())
-
+	// close the crawler
 	ragno.Close()
 
 	return nil
