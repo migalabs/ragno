@@ -2,7 +2,11 @@ package crawler
 
 import (
 	"context"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
+
 	"time"
 
 	"github.com/cortze/ragno/db"
@@ -98,26 +102,40 @@ func (c *Crawler) Run() error {
 	// channel to receive the peers from the peer discoverer
 	connChan := make(chan *modules.ELNode, c.concurrentDialers)
 
+	// wait group for the peer discoverer
+	wgDiscoverer := sync.WaitGroup{}
+	wgDiscoverer.Add(1)
+
 	// start the peer discoverer
 	go func() {
+		defer wgDiscoverer.Done()
 		logrus.Info("Starting peer discoverer")
 		err := c.peerDisc.Run(connChan)
 		if err != nil {
 			logrus.Error("Error in peer discoverer: ", err)
 		}
+		close(connChan)
 	}()
 
 	// start workers to connect to peers
-	var wg sync.WaitGroup
+	var wgDialers sync.WaitGroup
+
+	closeC := make(chan os.Signal, 1)
+	signal.Notify(closeC, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	logrus.Info("Starting ", c.concurrentDialers, " workers to connect to peers")
 	for i := 0; i < c.concurrentDialers; i++ {
-		wg.Add(1)
+		wgDialers.Add(1)
 		go func(i int) {
-			defer wg.Done()
+			defer wgDialers.Done()
+		loop:
 			for {
 				select {
-				case peer := <-connChan:
+				case peer, ok := <-connChan:
+					// if the channel is closed, break the loop
+					if !ok {
+						break loop
+					}
 					// try to connect to the peer
 					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
 					c.Connect(peer)
@@ -125,16 +143,16 @@ func (c *Crawler) Run() error {
 					c.db.PersistNode(*peer)
 				case <-c.ctx.Done():
 					return
+
+				case <-closeC:
+					break loop
 				}
 			}
 		}(i)
 	}
-
-	// init IP locator
-
-	// init host
-
-	// init discoveries
+	wgDiscoverer.Wait()
+	logrus.Info("Waiting for dialers to finish")
+	wgDialers.Wait()
 
 	return nil
 }
@@ -173,6 +191,7 @@ func (c *Crawler) Close() {
 	// stop IP locator
 
 	// stop db
+	c.db.Finish()
 
 	logrus.Info("Ragno closing routine done! See you!")
 }

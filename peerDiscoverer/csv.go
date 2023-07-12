@@ -1,6 +1,10 @@
 package peerDiscoverer
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/cortze/ragno/csv"
 	"github.com/cortze/ragno/modules"
 	"github.com/sirupsen/logrus"
@@ -33,12 +37,20 @@ func (c *CsvPeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
 	}
 	logrus.Debug("Amount of peers read from csv file: ", len(peers))
 
+	closeC := make(chan os.Signal, 1)
+	signal.Notify(closeC, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	logrus.Trace("Sending peers to sending channel")
 	// send the peers to the sending channel
 	for _, peer := range peers {
+		select {
+		case <-closeC:
+			logrus.Info("csvDiscoverer: Shutdown detected")
+			return nil
+		default:
+		}
 		c.sendNodes(sendingChan, peer)
 	}
-	logrus.Trace("Finished sending peers to sending channel")
+	logrus.Trace("csvDiscoverer: Finished sending peers to sending channel")
 
 	return nil
 }
