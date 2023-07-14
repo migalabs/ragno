@@ -29,6 +29,20 @@ var (
 		error TEXT
 	);`
 
+	CreateNodeControlTable = `
+	CREATE TABLE IF NOT EXISTS t_node_control (
+		id INT GENERATED ALWAYS AS IDENTITY,
+		node_id TEXT PRIMARY KEY,
+		first_seen TEXT NOT NULL,
+		last_seen TEXT NOT NULL,
+		ip TEXT NOT NULL,
+		tcp INT NOT NULL,
+		udp INT NOT NULL,
+		seq BIGINT NOT NULL,
+		pubkey TEXT NOT NULL,
+		record TEXT NOT NULL
+	);`
+
 	DropNodeTables = `
 	DROP TABLE IF EXISTS t_node_info;
 	`
