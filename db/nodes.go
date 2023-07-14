@@ -14,7 +14,7 @@ var (
 	CreateNodeTable = `
 	CREATE TABLE IF NOT EXISTS t_el_nodes (
 		id INT GENERATED ALWAYS AS IDENTITY,
-		node_id TEXT NOT NULL,
+		node_id TEXT PRIMARY KEY,
 		peer_id TEXT NOT NULL,
 		first_seen TEXT NOT NULL,
 		last_seen TEXT NOT NULL,
@@ -26,9 +26,7 @@ var (
 		client_name TEXT NOT NULL,
 		capabilities TEXT[] NOT NULL,
 		software_info INT NOT NULL,
-		error TEXT,
-
-		PRIMARY KEY (node_id)
+		error TEXT
 	);`
 
 	DropNodeTables = `
