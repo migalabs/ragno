@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	CreateNodeTable = `
-	CREATE TABLE IF NOT EXISTS t_el_nodes (
+	CreateNodeInfoTable = `
+	CREATE TABLE IF NOT EXISTS t_node_info (
 		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT PRIMARY KEY,
 		peer_id TEXT NOT NULL,
@@ -30,11 +30,11 @@ var (
 	);`
 
 	DropNodeTables = `
-	DROP TABLE IF EXISTS t_el_nodes;
+	DROP TABLE IF EXISTS t_node_info;
 	`
 
 	InsertNodeInfo = `
-	INSERT INTO t_el_nodes (
+	INSERT INTO t_node_info (
 		node_id,
 		peer_id,
 		first_seen,
@@ -81,9 +81,9 @@ var (
 )
 
 func (d *PostgresDBService) createNodeTable() error {
-	_, err := d.psqlPool.Exec(d.ctx, CreateNodeTable)
+	_, err := d.psqlPool.Exec(d.ctx, CreateNodeInfoTable)
 	if err != nil {
-		return errors.Wrap(err, "unable to initialize t_el_nodes table")
+		return errors.Wrap(err, "unable to initialize t_node_info table")
 	}
 	return nil
 }
@@ -92,7 +92,7 @@ func (d *PostgresDBService) dropNodeTables() error {
 	_, err := d.psqlPool.Exec(
 		d.ctx, DropNodeTables)
 	if err != nil {
-		return errors.Wrap(err, "unable to drop t_el_nodes table")
+		return errors.Wrap(err, "unable to drop t_node_info table")
 	}
 	return nil
 }
