@@ -1,12 +1,12 @@
 package db
 
 import (
-	// "encoding/hex"
+	"encoding/hex"
 	"strings"
 
 	"github.com/cortze/ragno/modules"
 
-	// "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -81,14 +81,14 @@ var (
 		seq,
 		pubkey,
 		record
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9)
 	ON CONFLICT (node_id) DO UPDATE SET
 		node_id = $1,
 		last_seen = $3,
 		ip = $4,
 		tcp = $5,
 		udp = $6,
-		seq = $7,
+		seq = $7::bigint,
 		pubkey = $8,
 		record = $9;
 	`
@@ -146,9 +146,32 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	return InsertNodeInfo, resultArgs
 }
 
-func (d *PostgresDBService) PersistNodeInfo(node modules.ELNode) {
-	persis := NewPersistable()
-	persis.query, persis.values = insertNodeInfo(node)
+func insertNodeControl(node modules.ELNode) (string, []interface{}) {
+	pubBytes := crypto.FromECDSAPub(node.Enode.Pubkey())
+	pubKey := hex.EncodeToString(pubBytes)
 
-	d.writeChan <- persis
+	resultArgs := make([]interface{}, 0)
+	resultArgs = append(resultArgs, node.Enode.ID().String())
+	resultArgs = append(resultArgs, node.FirstTimeSeen)
+	resultArgs = append(resultArgs, node.LastTimeSeen)
+	resultArgs = append(resultArgs, node.Enode.IP())
+	resultArgs = append(resultArgs, node.Enode.TCP())
+	resultArgs = append(resultArgs, node.Enode.UDP())
+	resultArgs = append(resultArgs, node.Enode.Seq())
+	resultArgs = append(resultArgs, pubKey)
+	resultArgs = append(resultArgs, node.Enr)
+
+	return InsertNodeControl, resultArgs
+}
+
+func (d *PostgresDBService) PersistNode(node modules.ELNode) {
+	persisControl := NewPersistable()
+	persisControl.query, persisControl.values = insertNodeControl(node)
+
+	d.writeChan <- persisControl
+
+	persisInfo := NewPersistable()
+	persisInfo.query, persisInfo.values = insertNodeInfo(node)
+
+	d.writeChan <- persisInfo
 }
