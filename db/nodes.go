@@ -1,12 +1,12 @@
 package db
 
 import (
-	"encoding/hex"
+	// "encoding/hex"
 	"strings"
 
 	"github.com/cortze/ragno/modules"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	// "github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -18,6 +18,7 @@ var (
 		peer_id TEXT NOT NULL,
 		first_connected TEXT NOT NULL,
 		last_connected TEXT NOT NULL,
+		last_tried TEXT NOT NULL,
 		client_name TEXT NOT NULL,
 		capabilities TEXT[] NOT NULL,
 		software_info INT NOT NULL,
@@ -52,19 +53,21 @@ var (
 		peer_id,
 		first_connected,
 		last_connected,
+		last_tried,
 		client_name,
 		capabilities,
 		software_info,
 		error
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 	ON CONFLICT (node_id) DO UPDATE SET 
 		node_id = $1,
 		peer_id = $2,
 		last_connected = $4,
-		client_name = $5,
-		capabilities = $6,
-		software_info = $7,
-		error = $8;
+		last_tried = $5,
+		client_name = $6,
+		capabilities = $7,
+		software_info = $8,
+		error = $9;
 	`
 
 	InsertNodeControl = `
@@ -117,9 +120,7 @@ func (d *PostgresDBService) dropNodeTables() error {
 	return nil
 }
 
-func insertNode(node modules.ELNode) (string, []interface{}) {
-	pubBytes := crypto.FromECDSAPub(node.Enode.Pubkey())
-	pubKey := hex.EncodeToString(pubBytes)
+func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 
 	capabilities := make([]string, 0, len(node.Hinfo.Capabilities))
 	for _, cap := range node.Hinfo.Capabilities {
@@ -134,13 +135,9 @@ func insertNode(node modules.ELNode) (string, []interface{}) {
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
 	resultArgs = append(resultArgs, "0")
-	resultArgs = append(resultArgs, node.FirstTimeSeen)
-	resultArgs = append(resultArgs, node.LastTimeSeen)
-	resultArgs = append(resultArgs, pubKey)
-	resultArgs = append(resultArgs, node.Enr)
-	resultArgs = append(resultArgs, node.Enode.Seq())
-	resultArgs = append(resultArgs, node.Enode.IP())
-	resultArgs = append(resultArgs, node.Enode.TCP())
+	resultArgs = append(resultArgs, node.FirstTimeConnected)
+	resultArgs = append(resultArgs, node.LastTimeConnected)
+	resultArgs = append(resultArgs, node.LastTimeTried)
 	resultArgs = append(resultArgs, node.Hinfo.ClientName)
 	resultArgs = append(resultArgs, capabilities)
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
@@ -149,9 +146,9 @@ func insertNode(node modules.ELNode) (string, []interface{}) {
 	return InsertNodeInfo, resultArgs
 }
 
-func (d *PostgresDBService) PersistNode(node modules.ELNode) {
+func (d *PostgresDBService) PersistNodeInfo(node modules.ELNode) {
 	persis := NewPersistable()
-	persis.query, persis.values = insertNode(node)
+	persis.query, persis.values = insertNodeInfo(node)
 
 	d.writeChan <- persis
 }

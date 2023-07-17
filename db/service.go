@@ -74,7 +74,7 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 
 func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error {
 	// create the tables
-	err := p.createNodeTable()
+	err := p.createNodeTables()
 	if err != nil {
 		return err
 	}

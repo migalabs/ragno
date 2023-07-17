@@ -6,9 +6,12 @@ import (
 )
 
 type ELNode struct {
-	Enode         *enode.Node
-	Hinfo         ethtest.HandshakeDetails
-	Enr           string
-	FirstTimeSeen string
-	LastTimeSeen  string
+	Enode              *enode.Node
+	Hinfo              ethtest.HandshakeDetails
+	Enr                string
+	FirstTimeSeen      string
+	LastTimeSeen       string
+	FirstTimeConnected string
+	LastTimeConnected  string
+	LastTimeTried      string
 }

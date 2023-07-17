@@ -140,7 +140,7 @@ func (c *Crawler) Run() error {
 					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
 					c.Connect(peer)
 					// save the peer
-					c.db.PersistNode(*peer)
+					c.db.PersistNodeInfo(*peer)
 				case <-c.ctx.Done():
 					return
 
@@ -161,9 +161,13 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 
 	// try to connect to the peer
 	for i := 0; i < c.retryAmount; i++ {
+		nodeInfo.LastTimeTried = time.Now().String()
+
 		nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
 		if nodeInfo.Hinfo.Error == nil {
 			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
+			nodeInfo.FirstTimeConnected = time.Now().String()
+			nodeInfo.LastTimeConnected = time.Now().String()
 			return
 		}
 
