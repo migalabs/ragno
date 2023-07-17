@@ -42,6 +42,10 @@ var (
 	DROP TABLE IF EXISTS t_node_info;
 	`
 
+	DropNodeControlTable = `
+	DROP TABLE IF EXISTS t_node_control;
+	`
+
 	InsertNodeInfo = `
 	INSERT INTO t_node_info (
 		node_id,
@@ -52,8 +56,7 @@ var (
 		capabilities,
 		software_info,
 		error
-	)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 	ON CONFLICT (node_id) DO UPDATE SET 
 		node_id = $1,
 		peer_id = $2,
@@ -62,6 +65,29 @@ var (
 		capabilities = $6,
 		software_info = $7,
 		error = $8;
+	`
+
+	InsertNodeControl = `
+	INSERT INTO t_node_control (
+		node_id,
+		first_seen,
+		last_seen,
+		ip,
+		tcp,
+		udp,
+		seq,
+		pubkey,
+		record
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	ON CONFLICT (node_id) DO UPDATE SET
+		node_id = $1,
+		last_seen = $3,
+		ip = $4,
+		tcp = $5,
+		udp = $6,
+		seq = $7,
+		pubkey = $8,
+		record = $9;
 	`
 )
 
