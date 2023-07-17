@@ -16,13 +16,8 @@ var (
 		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT PRIMARY KEY,
 		peer_id TEXT NOT NULL,
-		first_seen TEXT NOT NULL,
-		last_seen TEXT NOT NULL,
-		public_key TEXT NOT NULL,
-		enr TEXT NOT NULL,
-		seq_number BIGINT NOT NULL,
-		ip TEXT NOT NULL,
-		tcp INT NOT NULL,
+		first_connected TEXT NOT NULL,
+		last_connected TEXT NOT NULL,
 		client_name TEXT NOT NULL,
 		capabilities TEXT[] NOT NULL,
 		software_info INT NOT NULL,
@@ -51,46 +46,22 @@ var (
 	INSERT INTO t_node_info (
 		node_id,
 		peer_id,
-		first_seen,
-		last_seen,
-		public_key,
-		enr,
-		seq_number,
-		ip,
-		tcp,
+		first_connected,
+		last_connected,
 		client_name,
 		capabilities,
 		software_info,
 		error
 	)
-	VALUES (
-		$1,
-		$2,
-		$3,
-		$4,
-		$5,
-		$6,
-		$7::bigint,
-		$8,
-		$9,
-		$10,
-		$11,
-		$12,
-		$13
-	)
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 	ON CONFLICT (node_id) DO UPDATE SET 
 		node_id = $1,
 		peer_id = $2,
-		last_seen = $4,
-		public_key = $5,
-		enr = $6,
-		seq_number = $7::bigint,
-		ip = $8,
-		tcp = $9,
-		client_name = $10,
-		capabilities = $11,
-		software_info = $12,
-		error = $13;
+		last_connected = $4,
+		client_name = $5,
+		capabilities = $6,
+		software_info = $7,
+		error = $8;
 	`
 )
 
