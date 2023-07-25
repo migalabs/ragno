@@ -94,25 +94,33 @@ var (
 	`
 )
 
-func (d *PostgresDBService) createNodeTables() error {
+func (d *PostgresDBService) createNodeInfoTable() error {
 	_, err := d.psqlPool.Exec(d.ctx, CreateNodeInfoTable)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize t_node_info table")
 	}
-	_, err = d.psqlPool.Exec(d.ctx, CreateNodeControlTable)
+	return nil
+}
+
+func (d *PostgresDBService) createNodeControlTable() error {
+	_, err := d.psqlPool.Exec(d.ctx, CreateNodeControlTable)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize t_node_control table")
 	}
 	return nil
 }
 
-func (d *PostgresDBService) dropNodeTables() error {
+func (d *PostgresDBService) dropNodeInfoTable() error {
 	_, err := d.psqlPool.Exec(
 		d.ctx, DropNodeTables)
 	if err != nil {
 		return errors.Wrap(err, "unable to drop t_node_info table")
 	}
-	_, err = d.psqlPool.Exec(
+	return nil
+}
+
+func (d *PostgresDBService) dropNodeControlTable() error {
+	_, err := d.psqlPool.Exec(
 		d.ctx, DropNodeControlTable)
 	if err != nil {
 		return errors.Wrap(err, "unable to drop t_node_control table")
