@@ -60,8 +60,8 @@ func (s *EnodeSet) Len() int {
 // TODO: so far only contemplated the discv4 version of an eth node
 type EthNode struct {
 	Node   *enode.Node
-	FirstT time.Time
-	LastT  time.Time
+	FirstSeen time.Time
+	LastSeen  time.Time
 	ID     string
 	IP     string
 	UDP    int
@@ -94,8 +94,8 @@ func FromDiscv4Node(en *enode.Node) EthNodeOption {
 		}
 		// Set First and Last time we saw the Node
 		// (if updated, we will only update the LastTime seen)
-		ethNode.FirstT = time.Now()
-		ethNode.LastT = time.Now()
+		ethNode.FirstSeen = time.Now()
+		ethNode.LastSeen = time.Now()
 		ethNode.Node = en
 		ethNode.ID = en.ID().String()
 		ethNode.UDP = en.UDP()
@@ -110,7 +110,7 @@ func FromDiscv4Node(en *enode.Node) EthNodeOption {
 
 func (n *EthNode) Update(en *EthNode) {
 	// Only update the LastTime seen
-	n.LastT = en.LastT
+	n.LastSeen = en.LastSeen
 	n.Node = en.Node
 	n.ID = en.ID
 	n.UDP = en.UDP
@@ -128,8 +128,8 @@ func (n *EthNode) IsValid() bool {
 func (n *EthNode) ComposeCSVItems() []string {
 	items := make([]string, 0, 9)
 	items = append(items, n.ID)
-	items = append(items, n.FirstT.String())
-	items = append(items, n.LastT.String())
+	items = append(items, n.FirstSeen.String())
+	items = append(items, n.LastSeen.String())
 	items = append(items, n.IP)
 	items = append(items, strconv.Itoa(n.TCP))
 	items = append(items, strconv.Itoa(n.UDP))

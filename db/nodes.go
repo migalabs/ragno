@@ -7,6 +7,7 @@ import (
 	"github.com/cortze/ragno/modules"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/pkg/errors"
 )
 
@@ -39,12 +40,33 @@ var (
 		record TEXT NOT NULL
 	);`
 
+	CreateENRTable = `
+	CREATE TABLE IF NOT EXISTS t_enr (
+		id INT GENERATED ALWAYS AS IDENTITY,
+		node_id TEXT PRIMARY KEY,
+		first_seen TEXT NOT NULL,
+		last_seen TEXT NOT NULL,
+		ip TEXT NOT NULL,
+		tcp INT NOT NULL,
+		udp INT NOT NULL,
+		seq BIGINT NOT NULL,
+		pubkey TEXT NOT NULL,
+		record TEXT NOT NULL
+		score INT NOT NULL
+	);`
+
+	
+
 	DropNodeTables = `
 	DROP TABLE IF EXISTS t_node_info;
 	`
 
 	DropNodeControlTable = `
 	DROP TABLE IF EXISTS t_node_control;
+	`
+
+	DropENRTable = `
+	DROP TABLE IF EXISTS t_enr;
 	`
 
 	InsertNodeInfo = `
@@ -92,6 +114,31 @@ var (
 		pubkey = $8,
 		record = $9;
 	`
+	InsertENR = `
+	INSERT INTO t_enr (
+		node_id,
+		first_seen,
+		last_seen,
+		ip,
+		tcp,
+		udp,
+		seq,
+		pubkey,
+		record
+		score
+	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9, $10)
+	ON CONFLICT (node_id) DO UPDATE SET
+		node_id = $1,
+		last_seen = $3,
+		ip = $4,
+		tcp = $5,
+		udp = $6,
+		seq = $7::bigint,
+		pubkey = $8,
+		record = $9,
+		score = $10;
+	`
+
 )
 
 func (d *PostgresDBService) createNodeInfoTable() error {
@@ -110,6 +157,14 @@ func (d *PostgresDBService) createNodeControlTable() error {
 	return nil
 }
 
+func (d *PostgresDBService) createENRTable() error {
+	_, err := d.psqlPool.Exec(d.ctx, CreateENRTable)
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize t_enr table")
+	}
+	return nil
+}
+
 func (d *PostgresDBService) dropNodeInfoTable() error {
 	_, err := d.psqlPool.Exec(
 		d.ctx, DropNodeTables)
@@ -124,6 +179,15 @@ func (d *PostgresDBService) dropNodeControlTable() error {
 		d.ctx, DropNodeControlTable)
 	if err != nil {
 		return errors.Wrap(err, "unable to drop t_node_control table")
+	}
+	return nil
+}
+
+func (d *PostgresDBService) dropENRTable() error {
+	_, err := d.psqlPool.Exec(
+		d.ctx, DropENRTable)
+	if err != nil {
+		return errors.Wrap(err, "unable to drop t_enr table")
 	}
 	return nil
 }
@@ -168,9 +232,30 @@ func insertNodeControl(node modules.ELNode) (string, []interface{}) {
 	resultArgs = append(resultArgs, node.Enode.Seq())
 	resultArgs = append(resultArgs, pubKey)
 	resultArgs = append(resultArgs, node.Enr)
-
 	return InsertNodeControl, resultArgs
 }
+
+func insertENR(node modules.EthNode) (string, []interface{}) {
+	pubBytes := crypto.FromECDSAPub(node.EthNode.Pubkey())
+	pubKey := hex.EncodeToString(pubBytes)
+
+	resultArgs := make([]interface{}, 0)
+	resultArgs = append(resultArgs, node.Node.ID().String())
+	resultArgs = append(resultArgs, node.FirstSeen)
+	resultArgs = append(resultArgs, node.LastSeen)
+	resultArgs = append(resultArgs, node.Node.IP())
+	resultArgs = append(resultArgs, node.Node.TCP())
+	resultArgs = append(resultArgs, node.Node.UDP())
+	resultArgs = append(resultArgs, node.Node.Seq())
+	resultArgs = append(resultArgs, pubKey)
+	resultArgs = append(resultArgs, node.Score)
+	resultArgs = append(resultArgs, node.Node.Record())
+
+	return InsertENR, resultArgs
+}
+
+
+
 
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
 	persisControl := NewPersistable()
@@ -180,6 +265,11 @@ func (d *PostgresDBService) PersistNode(node modules.ELNode) {
 
 	persisInfo := NewPersistable()
 	persisInfo.query, persisInfo.values = insertNodeInfo(node)
+
+	d.writeChan <- persisInfo
+
+	persisENR := NewPersistable()
+	persisENR.query, persisENR.values = insertENR(node)
 
 	d.writeChan <- persisInfo
 }

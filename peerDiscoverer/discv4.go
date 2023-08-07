@@ -146,8 +146,8 @@ func (d *Discv4PeerDiscoverer) runDiscv4Service(ctx *cli.Context, wg *sync.WaitG
 				elNode := modules.ELNode{
 					Enode:         ethNode.Node,
 					Enr:           ethNode.Node.String(),
-					FirstTimeSeen: ethNode.FirstT.String(),
-					LastTimeSeen:  ethNode.LastT.String(),
+					FirstTimeSeen: ethNode.FirstSeen.String(),
+					LastTimeSeen:  ethNode.LastSeen.String(),
 				}
 				d.sendNodes(sendC, &elNode)
 			}
