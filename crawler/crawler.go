@@ -166,8 +166,16 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 		nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
 		if nodeInfo.Hinfo.Error == nil {
 			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
-			nodeInfo.FirstTimeConnected = time.Now().String()
-			nodeInfo.LastTimeConnected = time.Now().String()
+
+			//checking if node_id is already in DB
+			existing_node := c.getNodeFromDB(nodeInfo.NodeID)
+			if existing_node == nil {
+				nodeInfo.FirstTimeConnected = time.Now().String()
+				nodeInfo.LastTimeConnected = time.Now().String()
+			} else {
+				nodeInfo.LastTimeConnected = time.Now().String()
+			}		
+		}
 			return
 		}
 
@@ -185,6 +193,12 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 	logrus.WithFields(logrus.Fields{
 		"error": nodeInfo.Hinfo.Error,
 	}).Trace("Couldn't connect to node: ", nodeInfo.Enr)
+	
+
+func (c *Crawler) getNodeFromDB(nodeID string) *modules.ELNode {
+		// Implement logic to fetch the node from the database based on the nodeID
+		// Return the node if found, or nil if not found
+		return nil
 }
 
 func (c *Crawler) Close() {

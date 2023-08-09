@@ -14,9 +14,11 @@ import (
 var (
 	CreateNodeInfoTable = `
 	CREATE TABLE IF NOT EXISTS t_node_info (
-		id INT GENERATED ALWAYS AS IDENTITY,
+		id INT GENERATED ALWAYS AS IDENTITY
 		node_id TEXT PRIMARY KEY,
 		peer_id TEXT NOT NULL,
+		ip TEXT NOT NULL,
+		tcp INT NOT NULL,
 		first_connected TEXT NOT NULL,
 		last_connected TEXT NOT NULL,
 		last_tried TEXT NOT NULL,
@@ -24,20 +26,6 @@ var (
 		capabilities TEXT[] NOT NULL,
 		software_info INT NOT NULL,
 		error TEXT
-	);`
-
-	CreateNodeControlTable = `
-	CREATE TABLE IF NOT EXISTS t_node_control (
-		id INT GENERATED ALWAYS AS IDENTITY,
-		node_id TEXT PRIMARY KEY,
-		first_seen TEXT NOT NULL,
-		last_seen TEXT NOT NULL,
-		ip TEXT NOT NULL,
-		tcp INT NOT NULL,
-		udp INT NOT NULL,
-		seq BIGINT NOT NULL,
-		pubkey TEXT NOT NULL,
-		record TEXT NOT NULL
 	);`
 
 	CreateENRTable = `
@@ -51,7 +39,7 @@ var (
 		udp INT NOT NULL,
 		seq BIGINT NOT NULL,
 		pubkey TEXT NOT NULL,
-		record TEXT NOT NULL
+		record TEXT NOT NULL,
 		score INT NOT NULL
 	);`
 
@@ -59,10 +47,6 @@ var (
 
 	DropNodeTables = `
 	DROP TABLE IF EXISTS t_node_info;
-	`
-
-	DropNodeControlTable = `
-	DROP TABLE IF EXISTS t_node_control;
 	`
 
 	DropENRTable = `
@@ -73,6 +57,8 @@ var (
 	INSERT INTO t_node_info (
 		node_id,
 		peer_id,
+		ip 
+		tcp
 		first_connected,
 		last_connected,
 		last_tried,
@@ -80,40 +66,21 @@ var (
 		capabilities,
 		software_info,
 		error
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	ON CONFLICT (node_id) DO UPDATE SET 
 		node_id = $1,
 		peer_id = $2,
-		last_connected = $4,
-		last_tried = $5,
-		client_name = $6,
-		capabilities = $7,
-		software_info = $8,
-		error = $9;
+		ip = $3
+		tcp = $4
+		first_connected = $5
+		last_connected = $6,
+		last_tried = $7,
+		client_name = $8,
+		capabilities = $9,
+		software_info = $10,
+		error = $11;
 	`
 
-	InsertNodeControl = `
-	INSERT INTO t_node_control (
-		node_id,
-		first_seen,
-		last_seen,
-		ip,
-		tcp,
-		udp,
-		seq,
-		pubkey,
-		record
-	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9)
-	ON CONFLICT (node_id) DO UPDATE SET
-		node_id = $1,
-		last_seen = $3,
-		ip = $4,
-		tcp = $5,
-		udp = $6,
-		seq = $7::bigint,
-		pubkey = $8,
-		record = $9;
-	`
 	InsertENR = `
 	INSERT INTO t_enr (
 		node_id,
@@ -126,7 +93,7 @@ var (
 		pubkey,
 		record
 		score
-	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9, $10)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9,$10)
 	ON CONFLICT (node_id) DO UPDATE SET
 		node_id = $1,
 		last_seen = $3,
@@ -149,14 +116,6 @@ func (d *PostgresDBService) createNodeInfoTable() error {
 	return nil
 }
 
-func (d *PostgresDBService) createNodeControlTable() error {
-	_, err := d.psqlPool.Exec(d.ctx, CreateNodeControlTable)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize t_node_control table")
-	}
-	return nil
-}
-
 func (d *PostgresDBService) createENRTable() error {
 	_, err := d.psqlPool.Exec(d.ctx, CreateENRTable)
 	if err != nil {
@@ -170,15 +129,6 @@ func (d *PostgresDBService) dropNodeInfoTable() error {
 		d.ctx, DropNodeTables)
 	if err != nil {
 		return errors.Wrap(err, "unable to drop t_node_info table")
-	}
-	return nil
-}
-
-func (d *PostgresDBService) dropNodeControlTable() error {
-	_, err := d.psqlPool.Exec(
-		d.ctx, DropNodeControlTable)
-	if err != nil {
-		return errors.Wrap(err, "unable to drop t_node_control table")
 	}
 	return nil
 }
@@ -207,6 +157,8 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
 	resultArgs = append(resultArgs, "0")
+	resultArgs = append(resultArgs, node.Enode.IP())
+	resultArgs = append(resultArgs, node.Enode.TCP())
 	resultArgs = append(resultArgs, node.FirstTimeConnected)
 	resultArgs = append(resultArgs, node.LastTimeConnected)
 	resultArgs = append(resultArgs, node.LastTimeTried)
@@ -216,23 +168,6 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	resultArgs = append(resultArgs, errorMessage)
 
 	return InsertNodeInfo, resultArgs
-}
-
-func insertNodeControl(node modules.ELNode) (string, []interface{}) {
-	pubBytes := crypto.FromECDSAPub(node.Enode.Pubkey())
-	pubKey := hex.EncodeToString(pubBytes)
-
-	resultArgs := make([]interface{}, 0)
-	resultArgs = append(resultArgs, node.Enode.ID().String())
-	resultArgs = append(resultArgs, node.FirstTimeSeen)
-	resultArgs = append(resultArgs, node.LastTimeSeen)
-	resultArgs = append(resultArgs, node.Enode.IP())
-	resultArgs = append(resultArgs, node.Enode.TCP())
-	resultArgs = append(resultArgs, node.Enode.UDP())
-	resultArgs = append(resultArgs, node.Enode.Seq())
-	resultArgs = append(resultArgs, pubKey)
-	resultArgs = append(resultArgs, node.Enr)
-	return InsertNodeControl, resultArgs
 }
 
 func insertENR(node modules.EthNode) (string, []interface{}) {
@@ -258,11 +193,7 @@ func insertENR(node modules.EthNode) (string, []interface{}) {
 
 
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
-	persisControl := NewPersistable()
-	persisControl.query, persisControl.values = insertNodeControl(node)
-
-	d.writeChan <- persisControl
-
+	
 	persisInfo := NewPersistable()
 	persisInfo.query, persisInfo.values = insertNodeInfo(node)
 
