@@ -5,9 +5,11 @@ import (
 	"strings"
 
 	"github.com/cortze/ragno/modules"
+	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
+	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/pkg/errors"
 )
 
@@ -143,7 +145,6 @@ func (d *PostgresDBService) dropENRTable() error {
 }
 
 func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
-
 	capabilities := make([]string, 0, len(node.Hinfo.Capabilities))
 	for _, cap := range node.Hinfo.Capabilities {
 		capabilities = append(capabilities, cap.String())
@@ -159,18 +160,85 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	resultArgs = append(resultArgs, "0")
 	resultArgs = append(resultArgs, node.Enode.IP())
 	resultArgs = append(resultArgs, node.Enode.TCP())
-	resultArgs = append(resultArgs, node.FirstTimeConnected)
-	resultArgs = append(resultArgs, node.LastTimeConnected)
+
+	// Use LastTimeTried for both FirstConnected and LastConnected
+	if node.LastTimeConnected == "" {
+		resultArgs = append(resultArgs, node.LastTimeTried)
+	} else {
+		resultArgs = append(resultArgs, node.LastTimeConnected)
+	}
+
 	resultArgs = append(resultArgs, node.LastTimeTried)
+	resultArgs = append(resultArgs, node.LastTimeTried) // Always update last_tried
+
 	resultArgs = append(resultArgs, node.Hinfo.ClientName)
 	resultArgs = append(resultArgs, capabilities)
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
 	resultArgs = append(resultArgs, errorMessage)
 
-	return InsertNodeInfo, resultArgs
+	query := `
+	INSERT INTO t_node_info (
+		node_id,
+		peer_id,
+		ip,
+		tcp,
+		first_connected,
+		last_connected,
+		last_tried,
+		client_name,
+		capabilities,
+		software_info,
+		error
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	ON CONFLICT (node_id) DO UPDATE SET 
+		node_id = $1,
+		peer_id = $2,
+		ip = $3,
+		tcp = $4,
+		last_connected = $6,
+		last_tried = $7,
+		client_name = $8,
+		capabilities = $9,
+		software_info = $10,
+		error = $11;
+	`
+
+	return query, resultArgs
 }
 
-func insertENR(node modules.EthNode) (string, []interface{}) {
+
+
+func (d* PostgresDBService) UpdateEnr(node modules.EthNode) (query string, args []interface{}) {
+
+	log.Trace("Upserting new enr to Eth Nodes")
+
+	query = 
+	`
+	INSERT INTO t_enr (
+		node_id,
+		first_seen,
+		last_seen,
+		ip,
+		tcp,
+		udp,
+		seq,
+		pubkey,
+		record
+		score
+	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9,$10)
+	ON CONFLICT (node_id) DO UPDATE SET
+		node_id = $1,
+		last_seen = $3,
+		ip = $4,
+		tcp = $5,
+		udp = $6,
+		seq = $7::bigint,
+		pubkey = $8,
+		record = $9,
+		score = $10;
+	`
+
+
 	pubBytes := crypto.FromECDSAPub(node.EthNode.Pubkey())
 	pubKey := hex.EncodeToString(pubBytes)
 
@@ -200,7 +268,7 @@ func (d *PostgresDBService) PersistNode(node modules.ELNode) {
 	d.writeChan <- persisInfo
 
 	persisENR := NewPersistable()
-	persisENR.query, persisENR.values = insertENR(node)
+	persisENR.query, persisENR.values = InsertENR(node)
 
 	d.writeChan <- persisInfo
 }

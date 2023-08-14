@@ -167,17 +167,22 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 		if nodeInfo.Hinfo.Error == nil {
 			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
 
-			//checking if node_id is already in DB
-			existing_node := c.getNodeFromDB(nodeInfo.NodeID)
-			if existing_node == nil {
-				nodeInfo.FirstTimeConnected = time.Now().String()
-				nodeInfo.LastTimeConnected = time.Now().String()
+			// Get the current timestamp
+			currentTime := time.Now().String()
+
+			query, args := insertNodeInfo(nodeInfo)
+
+			// Set first_connected and last_connected timestamps based on whether the node is new
+			if _, err := d.psqlPool.Exec(query, args...); err != nil {
+				logrus.Error("Error inserting/updating node info:", err)
 			} else {
-				nodeInfo.LastTimeConnected = time.Now().String()
-			}		
-		}
+				logrus.Trace("Node info inserted/updated successfully")
+			}
+
 			return
 		}
+	}
+
 
 		logrus.WithFields(logrus.Fields{
 			"retry": i,
@@ -194,12 +199,7 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 		"error": nodeInfo.Hinfo.Error,
 	}).Trace("Couldn't connect to node: ", nodeInfo.Enr)
 	
-
-func (c *Crawler) getNodeFromDB(nodeID string) *modules.ELNode {
-		// Implement logic to fetch the node from the database based on the nodeID
-		// Return the node if found, or nil if not found
-		return nil
-}
+	
 
 func (c *Crawler) Close() {
 	// finish discovery
