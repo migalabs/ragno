@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/cortze/ragno/crawler"
 	"github.com/cortze/ragno/modules"
+	// "github.com/ethereum/go-ethereum/p2p/enode"
+	// "github.com/lucas-clemente/quic-go/fuzzing/handshake"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"time"
 )
 
 var RWDeadline time.Duration = 20 * time.Second // for the read and write operations with the remote remoteNodes
@@ -77,28 +80,23 @@ func connect(ctx *cli.Context) error {
 		return err
 	}
 
-	ElNode := modules.ELNode{
-		Enr:           connectOptions.enr,
-		Enode:         modules.ParseStringToEnr(connectOptions.enr),
-		LastTimeSeen:  time.Now().String(),
-		FirstTimeSeen: time.Now().String(),
-	}
+	enode := modules.ParseStringToEnr(connectOptions.enr)
 
-	ElNode.Hinfo = host.Connect(ElNode.Enode)
-	if ElNode.Hinfo.Error != nil {
-		logrus.Info("Couldn't connect to Node: ", ElNode.Enr, ": ", ElNode.Hinfo.Error)
+	handshakeInfo := host.Connect(enode)
+	if handshakeInfo.Error != nil {
+		logrus.Info("Couldn't connect to Node: ", connectOptions.enr, ": ", handshakeInfo.Error)
 		return nil
 	}
 
-	logrus.Info("Connected to Node: ", ElNode.Enr)
-	logrus.Info("Node's IP: ", ElNode.Enode.IP())
-	logrus.Info("Node's TCP: ", ElNode.Enode.TCP())
-	logrus.Info("Node's UDP: ", ElNode.Enode.UDP())
-	logrus.Info("Node's ID: ", ElNode.Enode.ID().String())
-	logrus.Info("Node's Pubkey: ", modules.PubkeyToString(ElNode.Enode.Pubkey()))
-	logrus.Info("Node's Seq: ", ElNode.Enode.Seq())
-	logrus.Info("Node's Client: ", ElNode.Hinfo.ClientName)
-	logrus.Info("Node's Capabilities: ", ElNode.Hinfo.Capabilities)
-	logrus.Info("Node's SoftwareInfo: ", ElNode.Hinfo.SoftwareInfo)
+	logrus.Info("Connected to Node: ", connectOptions.enr)
+	logrus.Info("Node's IP: ", enode.IP())
+	logrus.Info("Node's TCP: ", enode.TCP())
+	logrus.Info("Node's UDP: ", enode.UDP())
+	logrus.Info("Node's ID: ", enode.ID().String())
+	logrus.Info("Node's Pubkey: ", modules.PubkeyToString(enode.Pubkey()))
+	logrus.Info("Node's Seq: ", enode.Seq())
+	logrus.Info("Node's Client: ", handshakeInfo.ClientName)
+	logrus.Info("Node's Capabilities: ", handshakeInfo.Capabilities)
+	logrus.Info("Node's SoftwareInfo: ", handshakeInfo.SoftwareInfo)
 	return nil
 }

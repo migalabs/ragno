@@ -143,12 +143,34 @@ func (d *Discv4PeerDiscoverer) runDiscv4Service(ctx *cli.Context, wg *sync.WaitG
 				if err != nil {
 					logrus.Error(errors.Wrap(err, "unable to add new node"))
 				}
-				elNode := modules.ELNode{
-					Enode:         ethNode.Node,
-					Enr:           ethNode.Node.String(),
-					FirstTimeSeen: ethNode.FirstT.String(),
-					LastTimeSeen:  ethNode.LastT.String(),
+
+				nodeControl := modules.NodeControl{
+					Attempts:           0,
+					SuccessfulAttempts: 0,
+					FirstSeen:          ethNode.FirstT.String(),
+					LastSeen:           ethNode.LastT.String(),
+					FirstAttempt:       "",
+					LastAttempt:        "",
+					FirstConnection:    "",
+					LastConnection:     "",
 				}
+
+				peerInfo := modules.PeerInfo{
+					IP:     ethNode.Node.IP(),
+					TCP:    ethNode.Node.TCP(),
+					UDP:    ethNode.Node.UDP(),
+					Seq:    ethNode.Node.Seq(),
+					Pubkey: *ethNode.Node.Pubkey(),
+					Record: *ethNode.Record,
+				}
+
+				elNode := modules.ELNode{
+					NodeId:      ethNode.Node.ID(),
+					Enr:         ethNode.Node.String(),
+					NodeControl: nodeControl,
+					PeerInfo:    peerInfo,
+				}
+
 				d.sendNodes(sendC, &elNode)
 			}
 		}

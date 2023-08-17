@@ -82,6 +82,10 @@ func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error 
 	if err != nil {
 		return err
 	}
+	err = p.createPeerInfoTable()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

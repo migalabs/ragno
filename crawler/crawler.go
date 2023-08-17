@@ -137,7 +137,7 @@ func (c *Crawler) Run() error {
 						break loop
 					}
 					// try to connect to the peer
-					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
+					logrus.Trace("Connecting to: ", peer.PeerInfo.Record, " , worker: ", i)
 					c.Connect(peer)
 					// save the peer
 					c.db.PersistNode(*peer)
@@ -157,34 +157,40 @@ func (c *Crawler) Run() error {
 	return nil
 }
 
-func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
+func (c *Crawler) Connect(node *modules.ELNode) {
 
 	// try to connect to the peer
 	for i := 0; i < c.retryAmount; i++ {
-		nodeInfo.LastTimeTried = time.Now().String()
+		node.NodeControl.FirstAttempt = time.Now().String()
+		node.NodeControl.LastAttempt = time.Now().String()
+		node.NodeControl.Attempts++
 
-		nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
-		if nodeInfo.Hinfo.Error == nil {
-			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
-			nodeInfo.FirstTimeConnected = time.Now().String()
-			nodeInfo.LastTimeConnected = time.Now().String()
+		enode := modules.ParseStringToEnr(node.Enr)
+
+		handshakeDetails := c.host.Connect(enode)
+		if handshakeDetails.Error == nil {
+			logrus.Trace("Node: ", node.Enr, " connected")
+			node.NodeControl.FirstConnection = time.Now().String()
+			node.NodeControl.LastConnection = time.Now().String()
 			return
 		}
 
+		node.NodeControl.LastError = handshakeDetails.Error
+
 		logrus.WithFields(logrus.Fields{
 			"retry": i,
-			"error": nodeInfo.Hinfo.Error,
-		}).Trace("Node: ", nodeInfo.Enr, " failed to connect")
+			"error": handshakeDetails.Error,
+		}).Trace("Node: ", node.Enr, " failed to connect")
 
-		if i == c.retryAmount-1 || !ShouldRetry(nodeInfo.Hinfo.Error) {
+		if i == c.retryAmount-1 || !ShouldRetry(handshakeDetails.Error) {
 			break
 		}
 		// wait for the retry delay
 		time.Sleep(time.Duration(c.retryDelay) * time.Second)
 	}
 	logrus.WithFields(logrus.Fields{
-		"error": nodeInfo.Hinfo.Error,
-	}).Trace("Couldn't connect to node: ", nodeInfo.Enr)
+		"error": node.NodeControl.LastError,
+	}).Trace("Couldn't connect to node: ", node.Enr)
 }
 
 func (c *Crawler) Close() {

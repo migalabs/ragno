@@ -60,13 +60,33 @@ func (i *CSVImporter) ReadELNodes() ([]*modules.ELNode, error) {
 	// parse the file
 	for _, line := range lines {
 		// create the modules.ELNode
-		elNodeInfo := new(modules.ELNode)
-		elNodeInfo.Enode = modules.ParseStringToEnr(line[ENR])
-		elNodeInfo.Enr = line[ENR]
-		elNodeInfo.FirstTimeSeen = line[FIRST_SEEN]
-		elNodeInfo.LastTimeSeen = line[LAST_SEEN]
+
+		enode := modules.ParseStringToEnr(line[ENR])
+
+		peerInfo := &modules.PeerInfo{
+			IP:     enode.IP(),
+			UDP:    enode.UDP(),
+			TCP:    enode.TCP(),
+			Seq:    enode.Seq(),
+			Pubkey: *enode.Pubkey(),
+			Record: *enode.Record(),
+		}
+
+		nodeControl := &modules.NodeControl{
+			Attempts:           0,
+			SuccessfulAttempts: 0,
+			FirstSeen:          line[FIRST_SEEN],
+			LastSeen:           line[LAST_SEEN],
+		}
+
+		elNode := new(modules.ELNode)
+		elNode.NodeId = enode.ID()
+		elNode.Enr = enode.String()
+		elNode.PeerInfo = *peerInfo
+		elNode.NodeControl = *nodeControl
+
 		// add the struct to the list
-		enrs = append(enrs, elNodeInfo)
+		enrs = append(enrs, elNode)
 	}
 	return enrs, nil
 }
