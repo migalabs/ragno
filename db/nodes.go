@@ -5,11 +5,9 @@ import (
 	"strings"
 
 	"github.com/cortze/ragno/modules"
-	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth/protocols/eth"
-	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -45,8 +43,6 @@ var (
 		score INT NOT NULL
 	);`
 
-	
-
 	DropNodeTables = `
 	DROP TABLE IF EXISTS t_node_info;
 	`
@@ -59,8 +55,8 @@ var (
 	INSERT INTO t_node_info (
 		node_id,
 		peer_id,
-		ip 
-		tcp
+		ip, 
+		tcp,
 		first_connected,
 		last_connected,
 		last_tried,
@@ -68,17 +64,19 @@ var (
 		capabilities,
 		software_info,
 		error
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+	) VALUES ($1,$2,$3,$4,
+		CASE WHEN NOT EXISTS (SELECT 1 FROM t_node_info WHERE node_id = $1) THEN $5 ELSE first_connected END,
+		$6,$7,$8,$9,$10,$11  
+	)
 	ON CONFLICT (node_id) DO UPDATE SET 
 		node_id = $1,
 		peer_id = $2,
-		ip = $3
-		tcp = $4
-		first_connected = $5
+		ip = $3,
+		tcp = $4,
 		last_connected = $6,
 		last_tried = $7,
 		client_name = $8,
-		capabilities = $9,
+		capabilities = $9, 
 		software_info = $10,
 		error = $11;
 	`
@@ -107,7 +105,6 @@ var (
 		record = $9,
 		score = $10;
 	`
-
 )
 
 func (d *PostgresDBService) createNodeInfoTable() error {
@@ -164,13 +161,13 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	// Use LastTimeTried for both FirstConnected and LastConnected
 	if node.LastTimeConnected == "" {
 		resultArgs = append(resultArgs, node.LastTimeTried)
+		resultArgs = append(resultArgs, node.LastTimeTried)
 	} else {
-		resultArgs = append(resultArgs, node.LastTimeConnected)
+		resultArgs = append(resultArgs, node.FirstTimeConnected)
+		resultArgs = append(resultArgs, node.LastTimeTried)
 	}
 
-	resultArgs = append(resultArgs, node.LastTimeTried)
 	resultArgs = append(resultArgs, node.LastTimeTried) // Always update last_tried
-
 	resultArgs = append(resultArgs, node.Hinfo.ClientName)
 	resultArgs = append(resultArgs, capabilities)
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
@@ -206,14 +203,12 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	return query, resultArgs
 }
 
-
-
-func (d* PostgresDBService) UpdateEnr(node modules.EthNode) (query string, args []interface{}) {
+func (d *PostgresDBService) updateEnr(node modules.EthNode) (query string, args []interface{}) {
 
 	log.Trace("Upserting new enr to Eth Nodes")
 
-	query = 
-	`
+	query =
+		`
 	INSERT INTO t_enr (
 		node_id,
 		first_seen,
@@ -238,7 +233,6 @@ func (d* PostgresDBService) UpdateEnr(node modules.EthNode) (query string, args 
 		score = $10;
 	`
 
-
 	pubBytes := crypto.FromECDSAPub(node.EthNode.Pubkey())
 	pubKey := hex.EncodeToString(pubBytes)
 
@@ -257,18 +251,15 @@ func (d* PostgresDBService) UpdateEnr(node modules.EthNode) (query string, args 
 	return InsertENR, resultArgs
 }
 
-
-
-
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
-	
+
 	persisInfo := NewPersistable()
 	persisInfo.query, persisInfo.values = insertNodeInfo(node)
 
 	d.writeChan <- persisInfo
 
 	persisENR := NewPersistable()
-	persisENR.query, persisENR.values = InsertENR(node)
+	persisENR.query, persisENR.values = d.updateEnr()(node)
 
 	d.writeChan <- persisInfo
 }

@@ -167,18 +167,7 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 		if nodeInfo.Hinfo.Error == nil {
 			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
 
-			// Get the current timestamp
-			currentTime := time.Now().String()
-
-			query, args := insertNodeInfo(nodeInfo)
-
-			// Set first_connected and last_connected timestamps based on whether the node is new
-			if _, err := d.psqlPool.Exec(query, args...); err != nil {
-				logrus.Error("Error inserting/updating node info:", err)
-			} else {
-				logrus.Trace("Node info inserted/updated successfully")
-			}
-
+			c.db.PersistNode(*nodeInfo)
 			return
 		}
 	}
