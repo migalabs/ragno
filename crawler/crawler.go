@@ -170,7 +170,7 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 			c.db.PersistNode(*nodeInfo)
 			return
 		}
-	}
+	
 
 
 		logrus.WithFields(logrus.Fields{
@@ -188,7 +188,7 @@ func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
 		"error": nodeInfo.Hinfo.Error,
 	}).Trace("Couldn't connect to node: ", nodeInfo.Enr)
 	
-	
+}
 
 func (c *Crawler) Close() {
 	// finish discovery

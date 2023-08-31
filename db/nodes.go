@@ -203,7 +203,7 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	return query, resultArgs
 }
 
-func (d *PostgresDBService) updateEnr(node modules.EthNode) (query string, args []interface{}) {
+func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args []interface{}) {
 
 	log.Trace("Upserting new enr to Eth Nodes")
 
@@ -233,7 +233,7 @@ func (d *PostgresDBService) updateEnr(node modules.EthNode) (query string, args 
 		score = $10;
 	`
 
-	pubBytes := crypto.FromECDSAPub(node.EthNode.Pubkey())
+	pubBytes := crypto.FromECDSAPub(node.Node.Pubkey())
 	pubKey := hex.EncodeToString(pubBytes)
 
 	resultArgs := make([]interface{}, 0)
@@ -252,14 +252,19 @@ func (d *PostgresDBService) updateEnr(node modules.EthNode) (query string, args 
 }
 
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
+    persisInfo := NewPersistable()
+    persisInfo.query, persisInfo.values = insertNodeInfo(node)
+    d.writeChan <- persisInfo
 
-	persisInfo := NewPersistable()
-	persisInfo.query, persisInfo.values = insertNodeInfo(node)
+    ethNode, err := modules.NewEthNode(
+        modules.FromDiscv4Node(node.Enode),
+    )
+    if err != nil {
+        // Handle error
+        return
+    }
 
-	d.writeChan <- persisInfo
-
-	persisENR := NewPersistable()
-	persisENR.query, persisENR.values = d.updateEnr()(node)
-
-	d.writeChan <- persisInfo
+    persisENR := NewPersistable()
+    persisENR.query, persisENR.values = d.updateEnr(ethNode)
+    d.writeChan <- persisENR
 }

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -54,6 +53,8 @@ func (s *EnodeSet) Len() int {
 	defer s.m.RUnlock()
 	return len(s.list)
 }
+
+
 
 // In relation to the Ethereum Node
 
@@ -138,3 +139,4 @@ func (n *EthNode) ComposeCSVItems() []string {
 	items = append(items, n.Node.String())
 	return items
 }
+
