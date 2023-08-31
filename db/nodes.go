@@ -14,7 +14,7 @@ import (
 var (
 	CreateNodeInfoTable = `
 	CREATE TABLE IF NOT EXISTS t_node_info (
-		id INT GENERATED ALWAYS AS IDENTITY
+		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT PRIMARY KEY,
 		peer_id TEXT NOT NULL,
 		ip TEXT NOT NULL,
