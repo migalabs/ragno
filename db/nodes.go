@@ -5,10 +5,9 @@ import (
 	"strings"
 
 	"github.com/cortze/ragno/modules"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pkg/errors"
 )
 
@@ -20,9 +19,9 @@ var (
 		peer_id TEXT NOT NULL,
 		ip TEXT NOT NULL,
 		tcp INT NOT NULL,
-		first_connected TEXT NOT NULL,
-		last_connected TEXT NOT NULL,
-		last_tried TEXT NOT NULL,
+		first_connected TIMESTAMP NOT NULL,
+		last_connected TIMESTAMP NOT NULL,
+		last_tried TIMESTAMP NOT NULL,
 		client_name TEXT NOT NULL,
 		capabilities TEXT[] NOT NULL,
 		software_info INT NOT NULL,
@@ -33,8 +32,8 @@ var (
 	CREATE TABLE IF NOT EXISTS t_enr (
 		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT PRIMARY KEY,
-		first_seen TEXT NOT NULL,
-		last_seen TEXT NOT NULL,
+		first_seen TIMESTAMP NOT NULL,
+		last_seen TIMESTAMP NOT NULL,
 		ip TEXT NOT NULL,
 		tcp INT NOT NULL,
 		udp INT NOT NULL,
@@ -52,7 +51,7 @@ var (
 	DROP TABLE IF EXISTS t_enr;
 	`
 
-	InsertNodeInfo = `
+	insertNodeInfoQuery = `
 	INSERT INTO t_node_info (
 		node_id,
 		peer_id,
@@ -65,13 +64,8 @@ var (
 		capabilities,
 		software_info,
 		error
-	) VALUES ($1,$2,$3,$4,
-		CASE WHEN NOT EXISTS (SELECT 1 FROM t_node_info WHERE node_id = $1) THEN $5 ELSE first_connected END,
-		$6,$7,$8,$9,$10,$11  
-	)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	ON CONFLICT (node_id) DO UPDATE SET 
-		node_id = $1,
-		peer_id = $2,
 		ip = $3,
 		tcp = $4,
 		last_connected = $6,
@@ -148,19 +142,57 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 		capabilities = append(capabilities, cap.String())
 	}
 
-	errorMessage := ""
+	errorMessage := "None"
 	if node.Hinfo.Error != nil {
 		errorMessage = strings.Replace(node.Hinfo.Error.Error(), "'", "''", -1) // Escape single quote with two single quotes
 	}
 
+	/*
+			INSERT INTO t_node_info (
+					node_id,
+					peer_id,
+					ip,
+					tcp,
+					first_connected,
+					last_connected,
+					last_tried,
+					client_name,
+					capabilities,
+					software_info,
+					error
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+				ON CONFLICT (node_id) DO UPDATE SET
+					ip = $3,
+					tcp = $4,
+					last_connected = $6,
+					last_tried = $7,
+					client_name = $8,
+					capabilities = $9,
+					software_info = $10,
+					error = $11;
+
+		id INT GENERATED ALWAYS AS IDENTITY,
+				node_id TEXT PRIMARY KEY,
+				peer_id TEXT NOT NULL,
+				ip TEXT NOT NULL,
+				tcp INT NOT NULL,
+				first_connected TEXT NOT NULL,
+				last_connected TEXT NOT NULL,
+				last_tried TEXT NOT NULL,
+				client_name TEXT NOT NULL,
+				capabilities TEXT[] NOT NULL,
+				software_info INT NOT NULL,
+				error TEXT
+	*/
+
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
-    resultArgs = append(resultArgs, hex.EncodeToString([]byte("0"))) // Encode binary data as a hex string
-	resultArgs = append(resultArgs, node.Enode.IP())
+	resultArgs = append(resultArgs, "0") // Encode binary data as a hex string
+	resultArgs = append(resultArgs, node.Enode.IP().String())
 	resultArgs = append(resultArgs, node.Enode.TCP())
 
 	// Use LastTimeTried for both FirstConnected and LastConnected
-	if node.LastTimeConnected == "" {
+	if !node.LastTimeConnected.IsZero() {
 		resultArgs = append(resultArgs, node.LastTimeTried)
 		resultArgs = append(resultArgs, node.LastTimeTried)
 	} else {
@@ -174,34 +206,7 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
 	resultArgs = append(resultArgs, errorMessage)
 
-	query := `
-	INSERT INTO t_node_info (
-		node_id,
-		peer_id,
-		ip,
-		tcp,
-		first_connected,
-		last_connected,
-		last_tried,
-		client_name,
-		capabilities,
-		software_info,
-		error
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	ON CONFLICT (node_id) DO UPDATE SET 
-		node_id = $1,
-		peer_id = $2,
-		ip = $3,
-		tcp = $4,
-		last_connected = $6,
-		last_tried = $7,
-		client_name = $8,
-		capabilities = $9,
-		software_info = $10,
-		error = $11;
-	`
-
-	return query, resultArgs
+	return insertNodeInfoQuery, resultArgs
 }
 
 func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args []interface{}) {
@@ -241,31 +246,28 @@ func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args
 	resultArgs = append(resultArgs, node.Node.ID().String())
 	resultArgs = append(resultArgs, node.FirstSeen)
 	resultArgs = append(resultArgs, node.LastSeen)
-	resultArgs = append(resultArgs, node.Node.IP())
+	resultArgs = append(resultArgs, node.Node.IP().String())
 	resultArgs = append(resultArgs, node.Node.TCP())
 	resultArgs = append(resultArgs, node.Node.UDP())
 	resultArgs = append(resultArgs, node.Node.Seq())
 	resultArgs = append(resultArgs, pubKey)
-	resultArgs = append(resultArgs, node.Node.Record())
+	resultArgs = append(resultArgs, node.Node.String())
 	resultArgs = append(resultArgs, node.Score)
 
 	return query, resultArgs
 }
 
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
-    persisInfo := NewPersistable()
-    persisInfo.query, persisInfo.values = insertNodeInfo(node)
-    d.writeChan <- persisInfo
+	persisInfo := NewPersistable()
+	persisInfo.query, persisInfo.values = insertNodeInfo(node)
+	d.writeChan <- persisInfo
 
-    ethNode, err := modules.NewEthNode(
-        modules.FromDiscv4Node(node.Enode),
-    )
-    if err != nil {
-        // Handle error
-        return
-    }
-
-    persisENR := NewPersistable()
-    persisENR.query, persisENR.values = d.updateEnr(ethNode)
-    d.writeChan <- persisENR
+	ethNode, err := modules.NewEthNode(modules.FromDiscv4Node(node.Enode))
+	if err != nil {
+		// Handle error
+		return
+	}
+	persisENR := NewPersistable()
+	persisENR.query, persisENR.values = d.updateEnr(ethNode)
+	d.writeChan <- persisENR
 }

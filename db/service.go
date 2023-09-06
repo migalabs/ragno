@@ -105,7 +105,7 @@ func (p *PostgresDBService) runWriters() {
 		go func(dbWriterID int) {
 			defer p.wgDBWriters.Done()
 			batcher := NewQueryBatch(p.ctx, p.psqlPool, MAX_BATCH_QUEUE)
-			wlogWriter := wlog.WithField("DBWriter", dbWriterID)
+			wlogWriter := wlog.WithField("db-writer", dbWriterID)
 			ticker := time.NewTicker(RoutineFlushTimeout)
 		loop:
 			for {
@@ -119,7 +119,7 @@ func (p *PostgresDBService) runWriters() {
 					if batcher.IsReadyToPersist() {
 						err := batcher.PersistBatch()
 						if err != nil {
-							wlogWriter.Errorf("Error processing batch", err.Error())
+							wlogWriter.Error("Error processing batch", err.Error())
 						}
 					}
 
