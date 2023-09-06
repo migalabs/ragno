@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cortze/ragno/modules"
+	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -91,7 +92,7 @@ var (
 		udp,
 		seq,
 		pubkey,
-		record
+		record,
 		score
 	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9,$10)
 	ON CONFLICT (node_id) DO UPDATE SET
@@ -154,7 +155,7 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 
 	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
-	resultArgs = append(resultArgs, "0")
+    resultArgs = append(resultArgs, hex.EncodeToString([]byte("0"))) // Encode binary data as a hex string
 	resultArgs = append(resultArgs, node.Enode.IP())
 	resultArgs = append(resultArgs, node.Enode.TCP())
 
@@ -218,7 +219,7 @@ func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args
 		udp,
 		seq,
 		pubkey,
-		record
+		record,
 		score
 	) VALUES ($1,$2,$3,$4,$5,$6,$7::bigint,$8,$9,$10)
 	ON CONFLICT (node_id) DO UPDATE SET
@@ -245,10 +246,10 @@ func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args
 	resultArgs = append(resultArgs, node.Node.UDP())
 	resultArgs = append(resultArgs, node.Node.Seq())
 	resultArgs = append(resultArgs, pubKey)
-	resultArgs = append(resultArgs, node.Score)
 	resultArgs = append(resultArgs, node.Node.Record())
+	resultArgs = append(resultArgs, node.Score)
 
-	return InsertENR, resultArgs
+	return query, resultArgs
 }
 
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
