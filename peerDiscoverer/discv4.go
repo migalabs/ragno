@@ -1,13 +1,6 @@
 package peerDiscoverer
 
 import (
-	"net"
-	"os"
-	"os/signal"
-	"strconv"
-	"sync"
-	"syscall"
-
 	"github.com/cortze/ragno/modules"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -16,72 +9,57 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"net"
+	"strconv"
+	"sync"
 )
 
-type Discv4PeerDiscoverer struct {
-	port int
+type Discv4 struct {
+	port  int
+	doneC chan struct{}
 }
 
-func NewDisv4PeerDiscoverer(port int) (PeerDiscoverer, error) {
+func NewDiscv4(port int) (*Discv4, error) {
 	logrus.Info("Using Discv4 peer discoverer")
 
-	disc := &Discv4PeerDiscoverer{
+	disc := &Discv4{
 		port: port,
 	}
 	return disc, nil
 }
 
-func (d *Discv4PeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
+func (d *Discv4) Run(sendingChan chan *modules.ELNode) error {
 	// create a new context
 	ctx := cli.NewContext(nil, nil, nil)
 
 	var wg sync.WaitGroup
-	doneC := make(chan struct{}, 1)
+	d.doneC = make(chan struct{}, 1)
 
 	wg.Add(1)
-	err := d.runDiscv4Service(ctx, &wg, doneC, sendingChan)
-	if err != nil {
-		return errors.Wrap(err, "unable to run the Discv4 service")
-	}
-
-	closeC := make(chan os.Signal, 1)
-	signal.Notify(closeC, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	// Make it pretty
-	select {
-	case <-ctx.Done():
-		logrus.Error("Context died")
-		return nil
-
-	case <-closeC:
-		logrus.Info("Shutdown detected")
-		doneC <- struct{}{}
-		wg.Wait()
-		return nil
-	}
+	return d.runDiscv4Service(ctx, &wg, d.doneC, sendingChan)
 }
 
-func (d *Discv4PeerDiscoverer) sendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
-	sendingChan <- node
-}
-
-func (d *Discv4PeerDiscoverer) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{}, sendC chan *modules.ELNode) error {
+func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{}, sendC chan *modules.ELNode) error {
 	var err error
+
 	// create the private Key
 	privKey, err := crypto.GenerateKey()
 	if err != nil {
 		return err
 	}
+
 	bnodes := params.MainnetBootnodes
 	bootnodes, err := modules.ParseBootnodes(bnodes)
 	if err != nil {
 		return err
 	}
+
 	ethDB, err := enode.OpenDB("")
 	if err != nil {
 		return err
 	}
-	localNode := enode.NewLocalNode(ethDB, privKey)
 
+	localNode := enode.NewLocalNode(ethDB, privKey)
 	udpAddr := &net.UDPAddr{
 		IP:   net.IPv4zero,
 		Port: d.port,
@@ -137,21 +115,30 @@ func (d *Discv4PeerDiscoverer) runDiscv4Service(ctx *cli.Context, wg *sync.WaitG
 					"seq":    node.Seq(),
 					"pubkey": modules.PubkeyToString(node.Pubkey()),
 				}).Debug("new discv4 node")
-				ethNode, err := modules.NewEthNode(
-					modules.FromDiscv4Node(node),
-				)
+				ethNode, err := modules.NewEthNode(modules.FromDiscv4Node(node))
 				if err != nil {
 					logrus.Error(errors.Wrap(err, "unable to add new node"))
 				}
 				elNode := modules.ELNode{
 					Enode:         ethNode.Node,
 					Enr:           ethNode.Node.String(),
-					FirstTimeSeen: ethNode.FirstSeen.String(),
-					LastTimeSeen:  ethNode.LastSeen.String(),
+					FirstTimeSeen: ethNode.FirstSeen,
+					LastTimeSeen:  ethNode.LastSeen,
 				}
-				d.sendNodes(sendC, &elNode)
+				d.SendNodes(sendC, &elNode)
 			}
 		}
 	}()
+	return nil
+}
+
+func (d *Discv4) SendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
+	sendingChan <- node
+}
+
+func (d *Discv4) Close() error {
+	// notify of closure
+	d.doneC <- struct{}{}
+	close(d.doneC)
 	return nil
 }

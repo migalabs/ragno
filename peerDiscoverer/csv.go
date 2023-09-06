@@ -48,13 +48,17 @@ func (c *CsvPeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
 			return nil
 		default:
 		}
-		c.sendNodes(sendingChan, peer)
+		c.SendNodes(sendingChan, peer)
 	}
 	logrus.Trace("csvDiscoverer: Finished sending peers to sending channel")
 
 	return nil
 }
 
-func (c *CsvPeerDiscoverer) sendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
+func (c *CsvPeerDiscoverer) SendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
 	sendingChan <- node
+}
+
+func (c *CsvPeerDiscoverer) Close() error {
+	return nil
 }

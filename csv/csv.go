@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cortze/ragno/modules"
 )
@@ -63,8 +64,9 @@ func (i *CSVImporter) ReadELNodes() ([]*modules.ELNode, error) {
 		elNodeInfo := new(modules.ELNode)
 		elNodeInfo.Enode = modules.ParseStringToEnr(line[ENR])
 		elNodeInfo.Enr = line[ENR]
-		elNodeInfo.FirstTimeSeen = line[FIRST_SEEN]
-		elNodeInfo.LastTimeSeen = line[LAST_SEEN]
+		layout := "2006-01-02T15:04:05.000Z"
+		elNodeInfo.FirstTimeSeen, _ = time.Parse(layout, line[FIRST_SEEN])
+		elNodeInfo.LastTimeSeen, _ = time.Parse(layout, line[LAST_SEEN])
 		// add the struct to the list
 		enrs = append(enrs, elNodeInfo)
 	}
