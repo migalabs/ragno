@@ -80,8 +80,8 @@ func connect(ctx *cli.Context) error {
 	ElNode := modules.ELNode{
 		Enr:           connectOptions.enr,
 		Enode:         modules.ParseStringToEnr(connectOptions.enr),
-		LastTimeSeen:  time.Now().String(),
-		FirstTimeSeen: time.Now().String(),
+		LastTimeSeen:  time.Now(),
+		FirstTimeSeen: time.Now(),
 	}
 
 	ElNode.Hinfo = host.Connect(ElNode.Enode)

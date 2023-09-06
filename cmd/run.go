@@ -1,11 +1,16 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/cortze/ragno/crawler"
 
-	cli "github.com/urfave/cli/v2"
-
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	cli "github.com/urfave/cli/v2"
 )
 
 var RunCommand = &cli.Command{
@@ -86,6 +91,9 @@ var RunCommand = &cli.Command{
 }
 
 func RunRagno(ctx *cli.Context) error {
+	mainCtx, cancel := context.WithCancel(ctx.Context)
+	defer cancel()
+
 	// create a default crawler.ration
 	conf := crawler.NewDefaultRun()
 	err := conf.Apply(ctx)
@@ -94,16 +102,22 @@ func RunRagno(ctx *cli.Context) error {
 	}
 
 	// create a new crawler from the given configuration1
-	ragno, err := crawler.NewCrawler(ctx.Context, *conf)
+	ragno, err := crawler.NewCrawler(mainCtx, *conf)
 	if err != nil {
 		return errors.Wrap(err, "error initializing the crawler")
 	}
 
+	// create a routine that will check whether the program needs to shut down
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGKILL, os.Interrupt)
+	go func() {
+		sig := <-sigChan
+		log.Warnf("received signal %s - stopping ragno", sig.String())
+		signal.Stop(sigChan)
+		close(sigChan)
+		ragno.Close()
+	}()
+
 	// start the crawler
-	ragno.Run()
-
-	// close the crawler
-	ragno.Close()
-
-	return nil
+	return ragno.Run()
 }
