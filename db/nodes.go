@@ -51,11 +51,36 @@ var (
 	DROP TABLE IF EXISTS t_enr;
 	`
 
-	insertNodeInfoQuery = `
+	insertSuccessfulNodeInfoQuery = `
+		INSERT INTO t_node_info (
+			node_id,
+			peer_id,
+			ip,
+			tcp,
+			first_connected,
+			last_connected,
+			last_tried,
+			client_name,
+			capabilities,
+			software_info,
+			error
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		ON CONFLICT (node_id) DO UPDATE SET
+			ip = $3,
+			tcp = $4,
+			last_connected = $6,
+			last_tried = $7,
+			client_name = $8,
+			capabilities = $9,
+			software_info = $10,
+			error = $11;
+	`
+
+	insertUnsuccessfulNodeInfoQuery = `
 	INSERT INTO t_node_info (
 		node_id,
 		peer_id,
-		ip, 
+		ip,
 		tcp,
 		first_connected,
 		last_connected,
@@ -64,17 +89,19 @@ var (
 		capabilities,
 		software_info,
 		error
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-	ON CONFLICT (node_id) DO UPDATE SET 
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
-		last_connected = $6,
 		last_tried = $7,
 		client_name = $8,
-		capabilities = $9, 
+		capabilities = $9,
 		software_info = $10,
 		error = $11;
-	`
+`
+
+
+
 
 	InsertENR = `
 	INSERT INTO t_enr (
@@ -136,7 +163,11 @@ func (d *PostgresDBService) dropENRTable() error {
 	return nil
 }
 
-func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
+func insertNodeInfo(node modules.ELNode, successful bool) (string, []interface{}) {
+	var query string
+	var resultArgs []interface{}
+
+
 	capabilities := make([]string, 0, len(node.Hinfo.Capabilities))
 	for _, cap := range node.Hinfo.Capabilities {
 		capabilities = append(capabilities, cap.String())
@@ -147,45 +178,6 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 		errorMessage = strings.Replace(node.Hinfo.Error.Error(), "'", "''", -1) // Escape single quote with two single quotes
 	}
 
-	/*
-			INSERT INTO t_node_info (
-					node_id,
-					peer_id,
-					ip,
-					tcp,
-					first_connected,
-					last_connected,
-					last_tried,
-					client_name,
-					capabilities,
-					software_info,
-					error
-				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-				ON CONFLICT (node_id) DO UPDATE SET
-					ip = $3,
-					tcp = $4,
-					last_connected = $6,
-					last_tried = $7,
-					client_name = $8,
-					capabilities = $9,
-					software_info = $10,
-					error = $11;
-
-		id INT GENERATED ALWAYS AS IDENTITY,
-				node_id TEXT PRIMARY KEY,
-				peer_id TEXT NOT NULL,
-				ip TEXT NOT NULL,
-				tcp INT NOT NULL,
-				first_connected TEXT NOT NULL,
-				last_connected TEXT NOT NULL,
-				last_tried TEXT NOT NULL,
-				client_name TEXT NOT NULL,
-				capabilities TEXT[] NOT NULL,
-				software_info INT NOT NULL,
-				error TEXT
-	*/
-
-	resultArgs := make([]interface{}, 0)
 	resultArgs = append(resultArgs, node.Enode.ID().String())
 	resultArgs = append(resultArgs, "0") // Encode binary data as a hex string
 	resultArgs = append(resultArgs, node.Enode.IP().String())
@@ -206,8 +198,16 @@ func insertNodeInfo(node modules.ELNode) (string, []interface{}) {
 	resultArgs = append(resultArgs, node.Hinfo.SoftwareInfo)
 	resultArgs = append(resultArgs, errorMessage)
 
-	return insertNodeInfoQuery, resultArgs
+	if successful {
+		query = insertSuccessfulNodeInfoQuery
+	} else {
+		query = insertUnsuccessfulNodeInfoQuery
+	}
+
+	return query, resultArgs
 }
+
+
 
 func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args []interface{}) {
 
@@ -257,17 +257,32 @@ func (d *PostgresDBService) updateEnr(node *modules.EthNode) (query string, args
 	return query, resultArgs
 }
 
+
+
+
 func (d *PostgresDBService) PersistNode(node modules.ELNode) {
-	persisInfo := NewPersistable()
-	persisInfo.query, persisInfo.values = insertNodeInfo(node)
-	d.writeChan <- persisInfo
+	persistInfo := NewPersistable()
+
+	var query string
+	var resultArgs []interface{}
+
+	successful := node.Hinfo.Error == nil
+
+	query, resultArgs = insertNodeInfo(node, successful)
+
+	persistInfo.query = query
+	persistInfo.values = resultArgs
+
+	d.writeChan <- persistInfo
 
 	ethNode, err := modules.NewEthNode(modules.FromDiscv4Node(node.Enode))
 	if err != nil {
 		// Handle error
 		return
 	}
-	persisENR := NewPersistable()
-	persisENR.query, persisENR.values = d.updateEnr(ethNode)
-	d.writeChan <- persisENR
+
+	persistENR := NewPersistable()
+	persistENR.query, persistENR.values = d.updateEnr(ethNode)
+	d.writeChan <- persistENR
 }
+
