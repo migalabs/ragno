@@ -1,6 +1,10 @@
-package peerDiscoverer
+package peerdiscovery
 
 import (
+	"net"
+	"strconv"
+	"sync"
+
 	"github.com/cortze/ragno/modules"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -9,9 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"net"
-	"strconv"
-	"sync"
 )
 
 type Discv4 struct {
@@ -125,14 +126,14 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC ch
 					FirstTimeSeen: ethNode.FirstSeen,
 					LastTimeSeen:  ethNode.LastSeen,
 				}
-				d.SendNodes(sendC, &elNode)
+				d.newNode(sendC, &elNode)
 			}
 		}
 	}()
 	return nil
 }
 
-func (d *Discv4) SendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
+func (d *Discv4) newNode(sendingChan chan *modules.ELNode, node *modules.ELNode) {
 	sendingChan <- node
 }
 

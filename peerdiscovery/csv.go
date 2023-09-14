@@ -1,4 +1,4 @@
-package peerDiscoverer
+package peerdiscovery
 
 import (
 	"os"
@@ -10,11 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type CsvPeerDiscoverer struct {
+type CSV struct {
 	csvImporter *csv.CSVImporter
 }
 
-func NewCSVPeerDiscoverer(file string) (PeerDiscoverer, error) {
+func NewCSVPeerDiscoverer(file string) (*CSV, error) {
 	logrus.Info("Using CSV peer discoverer")
 
 	csvImporter, err := csv.NewCsvImporter(file)
@@ -22,13 +22,13 @@ func NewCSVPeerDiscoverer(file string) (PeerDiscoverer, error) {
 		return nil, err
 	}
 
-	disc := &CsvPeerDiscoverer{
+	disc := &CSV{
 		csvImporter: csvImporter,
 	}
 	return disc, nil
 }
 
-func (c *CsvPeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
+func (c *CSV) Run(sendingChan chan *modules.ELNode) error {
 	// Get all the peers from the csv file
 	logrus.Trace("Reading peers from csv file")
 	peers, err := c.csvImporter.ReadELNodes()
@@ -48,17 +48,17 @@ func (c *CsvPeerDiscoverer) Run(sendingChan chan *modules.ELNode) error {
 			return nil
 		default:
 		}
-		c.SendNodes(sendingChan, peer)
+		c.newNode(sendingChan, peer)
 	}
 	logrus.Trace("csvDiscoverer: Finished sending peers to sending channel")
 
 	return nil
 }
 
-func (c *CsvPeerDiscoverer) SendNodes(sendingChan chan *modules.ELNode, node *modules.ELNode) {
+func (c *CSV) newNode(sendingChan chan *modules.ELNode, node *modules.ELNode) {
 	sendingChan <- node
 }
 
-func (c *CsvPeerDiscoverer) Close() error {
+func (c *CSV) Close() error {
 	return nil
 }
