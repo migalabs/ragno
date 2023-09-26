@@ -75,21 +75,22 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error {
 	var err error
 	// create the tables
-	err = p.createNodeInfoTable()
+	err = p.CreateENRtable()
 	if err != nil {
 		return err
 	}
-	err = p.createENRTable()
-	if err != nil {
-		return err
-	}
+	/*
+		err = p.createNodeInfoTable()
+		if err != nil {
+			return err
+		}
+	*/
 	return nil
 }
 
 func (p *PostgresDBService) Finish() {
 	p.stop = true
 	p.wgDBWriters.Wait()
-	wlog.Infof("Routines finished...")
 	wlog.Infof("closing connection to database server...")
 	p.psqlPool.Close()
 	wlog.Infof("connection to database server closed...")
@@ -97,8 +98,6 @@ func (p *PostgresDBService) Finish() {
 }
 
 func (p *PostgresDBService) runWriters() {
-
-	wlog.Info("Launching ELNode Writers")
 	wlog.Infof("Launching %d ELNode Writers", p.workerNum)
 	for i := 0; i < p.workerNum; i++ {
 		p.wgDBWriters.Add(1)
