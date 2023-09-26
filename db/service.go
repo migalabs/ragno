@@ -35,7 +35,7 @@ type PostgresDBService struct {
 	wgDBWriters   sync.WaitGroup
 
 	writeChan chan Persistable // Receive persist requests
-	stop      bool
+	doneC     chan struct{}
 	workerNum int
 }
 
@@ -62,6 +62,7 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 		psqlPool:      psqlPool,
 		writeChan:     make(chan Persistable, workerNum),
 		workerNum:     workerNum,
+		doneC:         make(chan struct{}),
 	}
 	// init the psql db
 	err = psqlDB.init(ctx, psqlDB.psqlPool)
@@ -79,21 +80,19 @@ func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error 
 	if err != nil {
 		return err
 	}
-	/*
-		err = p.createNodeInfoTable()
-		if err != nil {
-			return err
-		}
-	*/
+	err = p.CreateNodeInfoTable()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (p *PostgresDBService) Finish() {
-	p.stop = true
+	for i := 0; i < p.workerNum; i++ {
+		p.doneC <- struct{}{}
+	}
 	p.wgDBWriters.Wait()
-	wlog.Infof("closing connection to database server...")
 	p.psqlPool.Close()
-	wlog.Infof("connection to database server closed...")
 	close(p.writeChan)
 }
 
@@ -106,7 +105,6 @@ func (p *PostgresDBService) runWriters() {
 			batcher := NewQueryBatch(p.ctx, p.psqlPool, MAX_BATCH_QUEUE)
 			wlogWriter := wlog.WithField("db-writer", dbWriterID)
 			ticker := time.NewTicker(RoutineFlushTimeout)
-		loop:
 			for {
 				select {
 				case persis := <-p.writeChan:
@@ -121,9 +119,16 @@ func (p *PostgresDBService) runWriters() {
 							wlogWriter.Error("Error processing batch", err.Error())
 						}
 					}
+				case <-p.doneC:
+					wlog.Tracef("flushing batcher")
+					err := batcher.PersistBatch()
+					if err != nil {
+						wlogWriter.Errorf("Error processing batch", err.Error())
+					}
+					return
 
 				case <-p.ctx.Done():
-					break loop
+					return
 
 				case <-ticker.C:
 					// if limit reached or no more queue and pending tasks
@@ -134,13 +139,8 @@ func (p *PostgresDBService) runWriters() {
 							wlogWriter.Errorf("Error processing batch", err.Error())
 						}
 					}
-
-					if p.stop && len(p.writeChan) == 0 {
-						break loop
-					}
 				}
 			}
 		}(i)
 	}
-
 }

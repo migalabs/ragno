@@ -91,11 +91,9 @@ func (d *PeerDiscovery) discoverPeers(newENRc chan *models.ENR) {
 			d.db.PersistENR(enr)
 
 		case <-d.doneC:
-			log.Info("shutdown has been triggered")
 			return
 
 		case <-d.ctx.Done():
-			log.Info("Sudden shutdown detected!")
 			return
 		}
 	}

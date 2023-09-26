@@ -23,7 +23,8 @@ func (d *PostgresDBService) CreateENRtable() error {
 		udp INT NOT NULL,
 		seq BIGINT NOT NULL,
 		pubkey TEXT NOT NULL,
-		record TEXT NOT NULL
+		record TEXT NOT NULL,
+		score INT
 	);`
 	_, err := d.psqlPool.Exec(d.ctx, query)
 	if err != nil {
@@ -57,8 +58,9 @@ func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []in
 		udp,
 		seq,
 		pubkey,
-		record
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		record, 
+	    score
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	ON CONFLICT (node_id) DO UPDATE SET
 		node_id = $1,
 	    origin = $2,
@@ -68,7 +70,8 @@ func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []in
 		udp = $7,
 		seq = $8,
 		pubkey = $9,
-		record = $10;
+		record = $10,
+		score = $11;
 	`
 
 	pubBytes := crypto.FromECDSAPub(node.Node.Pubkey())
@@ -93,5 +96,10 @@ func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []in
 func (d *PostgresDBService) PersistENR(enr *models.ENR) {
 	p := NewPersistable()
 	p.query, p.values = d.insertENR(enr)
+	d.writeChan <- p
+	// insert new row at node_info with host_info
+	p = NewPersistable()
+	hInfo := enr.GetHostInfo()
+	p.query, p.values = d.upserHostInfoFromENR(hInfo)
 	d.writeChan <- p
 }

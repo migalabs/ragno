@@ -1,6 +1,7 @@
 package peerdiscovery
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"sync"
@@ -13,10 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 )
 
 type Discv4 struct {
+	ctx       context.Context
 	port      int
 	discvType models.DiscoveryType
 	enrC      chan *models.ENR
@@ -24,26 +25,25 @@ type Discv4 struct {
 	wg        sync.WaitGroup
 }
 
-func NewDiscv4(port int) (*Discv4, error) {
+func NewDiscv4(ctx context.Context, port int) (*Discv4, error) {
 	logrus.Info("Using Discv4 peer discoverer")
 
 	disc := &Discv4{
+		ctx:       ctx,
 		port:      port,
 		enrC:      make(chan *models.ENR),
 		discvType: models.Discovery4,
+		doneC:     make(chan struct{}),
 	}
 	return disc, nil
 }
 
 func (d *Discv4) Run() (chan *models.ENR, error) {
-	// create a new context
-	ctx := cli.NewContext(nil, nil, nil)
-
 	d.wg.Add(1)
-	return d.runDiscv4Service(ctx, d.doneC)
+	return d.runDiscv4Service()
 }
 
-func (d *Discv4) runDiscv4Service(ctx *cli.Context, doneC chan struct{}) (chan *models.ENR, error) {
+func (d *Discv4) runDiscv4Service() (chan *models.ENR, error) {
 	var err error
 
 	// create the private Key
@@ -87,48 +87,46 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, doneC chan struct{}) (chan *
 		"port": strconv.Itoa(udpAddr.Port),
 	}).Info("launching rango discv4")
 
-	closeC := make(chan struct{})
 	// actuall loop for crawling
 	go func() {
-		// finish the wg
-		defer func() {
-			discoverer4.Close()
-			logrus.Info("discv4 down")
-			d.wg.Done()
-			closeC <- struct{}{}
-		}()
 		// generate an iterator
 		rNodes := discoverer4.RandomNodes()
-		defer rNodes.Close()
-		for rNodes.Next() {
+		defer func() {
+			rNodes.Close()
+			discoverer4.Close()
+			d.wg.Done()
+		}()
+	newENRloop:
+		for {
 			select {
-			case <-ctx.Context.Done():
-				logrus.Error("unhandled ctx received")
-				return
-			case <-doneC:
-				logrus.Info("Shutdown detected")
-				return
+			case <-d.ctx.Done():
+				break newENRloop
+			case <-d.doneC:
+				break newENRloop
 			default:
-				// if everthing okey and no errors raised, discover more nodes
-				node := rNodes.Node()
-				logrus.WithFields(logrus.Fields{
-					"enr":    node.String(),
-					"ID":     node.ID(),
-					"IP":     node.IP(),
-					"UDP":    node.UDP(),
-					"TCP":    node.TCP(),
-					"seq":    node.Seq(),
-					"pubkey": models.PubkeyToString(node.Pubkey()),
-				}).Debug("new discv4 node")
-				enr, err := models.NewENR(
-					models.FromDiscv4(node),
-					models.WithTimestamp(time.Now()))
-				if err != nil {
-					logrus.Error(errors.Wrap(err, "unable to add new node"))
+				if rNodes.Next() {
+					// if everthing okey and no errors raised, discover more nodes
+					node := rNodes.Node()
+					logrus.WithFields(logrus.Fields{
+						"enr":    node.String(),
+						"ID":     node.ID(),
+						"IP":     node.IP(),
+						"UDP":    node.UDP(),
+						"TCP":    node.TCP(),
+						"seq":    node.Seq(),
+						"pubkey": models.PubkeyToString(node.Pubkey()),
+					}).Debug("new discv4 node")
+					enr, err := models.NewENR(
+						models.FromDiscv4(node),
+						models.WithTimestamp(time.Now()))
+					if err != nil {
+						logrus.Error(errors.Wrap(err, "unable to add new node"))
+					}
+					d.notifyNewNode(enr)
 				}
-				d.notifyNewNode(enr)
 			}
 		}
+		return
 	}()
 	return d.enrC, nil
 }

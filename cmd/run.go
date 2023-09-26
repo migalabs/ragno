@@ -96,9 +96,8 @@ func RunRagno(ctx *cli.Context) error {
 	go func() {
 		sig := <-sigChan
 		log.Warnf("received signal %s - stopping ragno", sig.String())
-		signal.Stop(sigChan)
-		close(sigChan)
 		ragno.Close()
+		close(sigChan)
 	}()
 
 	// start the crawler

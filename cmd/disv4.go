@@ -86,7 +86,7 @@ func discover4(ctx *cli.Context) error {
 }
 
 func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{}, port int, output string) error {
-	discv4, err := peerdiscovery.NewDiscv4(port)
+	discv4, err := peerdiscovery.NewDiscv4(ctx.Context, port)
 	if err != nil {
 		return err
 	}

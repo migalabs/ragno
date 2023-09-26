@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/hex"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 
 	"github.com/cortze/ragno/models"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -24,7 +25,7 @@ func (d *PostgresDBService) CreateNodeInfoTable() error {
 		capabilities TEXT[],
 		software_info INT,
 		error TEXT,
-		deprecable BOOL
+		deprecated BOOL
 	);`
 	_, err := d.psqlPool.Exec(d.ctx, query)
 	if err != nil {
@@ -108,6 +109,34 @@ func (d *PostgresDBService) insertNodeInfo(nInfo models.NodeInfo) (query string,
 	args = append(args, nInfo.ClientName)
 	args = append(args, capabilities)
 	args = append(args, nInfo.SoftwareInfo)
+
+	return query, args
+}
+
+func (d *PostgresDBService) upserHostInfoFromENR(hInfo *models.HostInfo) (query string, args []interface{}) {
+	query = `
+	INSERT INTO node_info(
+	    node_id,
+		pubkey,
+		ip,
+		tcp,
+		deprecated
+	) VALUES($1,$2,$3,$4,$5)
+	ON CONFLICT (node_id) DO UPDATE SET
+		ip = $3,
+		tcp = $4,
+		deprecated = $5;
+	`
+	// get pubkey and nodeID
+	pubBytes := crypto.FromECDSAPub(hInfo.Pubkey)
+	pubKey := hex.EncodeToString(pubBytes)
+	nodeID := enode.PubkeyToIDV4(hInfo.Pubkey)
+	// fill up the args
+	args = append(args, nodeID.String())
+	args = append(args, pubKey)
+	args = append(args, hInfo.IP)
+	args = append(args, hInfo.TCP)
+	args = append(args, false) // always set to false, as we found again the same ENR
 
 	return query, args
 }

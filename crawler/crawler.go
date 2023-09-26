@@ -54,7 +54,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	}
 
 	// create the peer discoverer
-	discv4, err := peerDisc.NewDiscv4(conf.HostPort)
+	discv4, err := peerDisc.NewDiscv4(ctx, conf.HostPort)
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -88,28 +88,20 @@ func (c *Crawler) Run() error {
 	var wgDialers sync.WaitGroup
 	logrus.Info("Starting ", c.concurrentDialers, " workers to connect to peers")
 	for i := 0; i < c.concurrentDialers; i++ {
-		/*
-			wgDialers.Add(1)
-			go func(i int) {
-				defer wgDialers.Done()
-				for {
-					select {
-					case peer := <-connChan:
-						// try to connect to the peer
-						logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
-						c.Connect(peer)
-						// save the peer
-						c.db.PersistNode(*peer)
-					case <-c.ctx.Done():
-						return
+		wgDialers.Add(1)
+		go func(i int) {
+			defer wgDialers.Done()
+			for {
+				select {
+				case <-c.ctx.Done():
+					return
 
-					case <-c.doneC:
-						logrus.Info("shutdown detected at worker, closing it")
-						return
-					}
+				case <-c.doneC:
+					logrus.Debug("shutdown detected at worker, closing it")
+					return
 				}
-			}(i)
-		*/
+			}
+		}(i)
 	}
 	logrus.Info("Waiting for dialers to finish")
 	wgDialers.Wait()
@@ -119,16 +111,19 @@ func (c *Crawler) Run() error {
 
 func (c *Crawler) Close() {
 	// finish discovery
+	logrus.Info("crawler: closing peer-discovery")
 	c.peerDisc.Close()
 	// stop workers
+	logrus.Info("crawler: closing dialers")
 	for i := 0; i < c.concurrentDialers; i++ {
 		c.doneC <- struct{}{}
 	}
 	// close host
+	logrus.Info("crawler: closing host")
 	c.host.Close()
 	// stop db
+	logrus.Info("crawler: closing database")
 	c.db.Finish()
-
 	logrus.Info("Ragno closing routine done! See you!")
 }
 
