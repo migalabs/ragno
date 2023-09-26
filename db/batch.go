@@ -94,7 +94,7 @@ func (q *QueryBatch) persistBatch() error {
 	nextQuery := true
 	cnt := 0
 	erroredQ := 0
-	for nextQuery {
+	for nextQuery && qerr == nil {
 		rows, qerr = batchResults.Query()
 		if qerr != nil {
 			erroredQ = cnt
@@ -110,6 +110,14 @@ func (q *QueryBatch) persistBatch() error {
 			"values": q.persistables[erroredQ].values,
 		}).Errorf("unable to persist query [%d]", erroredQ)
 		return errors.Wrap(qerr, "error persisting batch")
+	}
+	if ctx.Err() == context.DeadlineExceeded {
+		log.WithFields(log.Fields{
+			"error":  ctx.Err().Error(),
+			"query":  q.persistables[erroredQ].query,
+			"values": q.persistables[erroredQ].values,
+		}).Errorf("query timed out [%d]", erroredQ)
+		return errors.Wrap(ctx.Err(), "error persisting batch")
 	}
 	return nil
 }
