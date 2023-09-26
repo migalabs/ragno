@@ -4,7 +4,9 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/cortze/ragno/models"
 	"github.com/cortze/ragno/modules"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
@@ -16,48 +18,50 @@ import (
 )
 
 type Discv4 struct {
-	port  int
-	doneC chan struct{}
+	port      int
+	discvType models.DiscoveryType
+	enrC      chan *models.ENR
+	doneC     chan struct{}
+	wg        sync.WaitGroup
 }
 
 func NewDiscv4(port int) (*Discv4, error) {
 	logrus.Info("Using Discv4 peer discoverer")
 
 	disc := &Discv4{
-		port: port,
+		port:      port,
+		enrC:      make(chan *models.ENR),
+		discvType: models.Discovery4,
 	}
 	return disc, nil
 }
 
-func (d *Discv4) Run(sendingChan chan *modules.ELNode) error {
+func (d *Discv4) Run() (chan *models.ENR, error) {
 	// create a new context
 	ctx := cli.NewContext(nil, nil, nil)
 
-	var wg sync.WaitGroup
-	d.doneC = make(chan struct{}, 1)
-
-	wg.Add(1)
-	return d.runDiscv4Service(ctx, &wg, d.doneC, sendingChan)
+	d.wg.Add(1)
+	return d.runDiscv4Service(ctx, d.doneC)
 }
 
-func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{}, sendC chan *modules.ELNode) error {
+func (d *Discv4) runDiscv4Service(ctx *cli.Context, doneC chan struct{}) (chan *models.ENR, error) {
 	var err error
 
 	// create the private Key
 	privKey, err := crypto.GenerateKey()
 	if err != nil {
-		return err
+		return d.enrC, nil
 	}
 
 	bnodes := params.MainnetBootnodes
-	bootnodes, err := modules.ParseBootnodes(bnodes)
+	bootnodes, err := models.ParseBootnodes(bnodes)
 	if err != nil {
-		return err
+		return d.enrC, nil
 	}
 
 	ethDB, err := enode.OpenDB("")
 	if err != nil {
-		return err
+		return d.enrC, nil
 	}
 
 	localNode := enode.NewLocalNode(ethDB, privKey)
@@ -67,7 +71,7 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC ch
 	}
 	udpListener, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return err
+		return d.enrC, nil
 	}
 
 	discv4Options := discover.Config{
@@ -76,7 +80,7 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC ch
 	}
 	discoverer4, err := discover.ListenV4(udpListener, localNode, discv4Options)
 	if err != nil {
-		return err
+		return d.enrC, nil
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -89,8 +93,9 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC ch
 	go func() {
 		// finish the wg
 		defer func() {
-			wg.Done()
+			discoverer4.Close()
 			logrus.Info("discv4 down")
+			d.wg.Done()
 			closeC <- struct{}{}
 		}()
 		// generate an iterator
@@ -114,32 +119,30 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC ch
 					"UDP":    node.UDP(),
 					"TCP":    node.TCP(),
 					"seq":    node.Seq(),
-					"pubkey": modules.PubkeyToString(node.Pubkey()),
+					"pubkey": models.PubkeyToString(node.Pubkey()),
 				}).Debug("new discv4 node")
-				ethNode, err := modules.NewEthNode(modules.FromDiscv4Node(node))
+				enr, err := models.NewENR(
+					node,
+					models.FromDiscv4(node),
+					models.WithTimestamp(time.Now()))
 				if err != nil {
 					logrus.Error(errors.Wrap(err, "unable to add new node"))
 				}
-				elNode := modules.ELNode{
-					Enode:         ethNode.Node,
-					Enr:           ethNode.Node.String(),
-					FirstTimeSeen: ethNode.FirstSeen,
-					LastTimeSeen:  ethNode.LastSeen,
-				}
-				d.newNode(sendC, &elNode)
+				d.notifyNewNode(enr)
 			}
 		}
 	}()
-	return nil
+	return d.enrC, nil
 }
 
-func (d *Discv4) newNode(sendingChan chan *modules.ELNode, node *modules.ELNode) {
-	sendingChan <- node
+func (d *Discv4) notifyNewNode(enr *modules.ENR) {
+	d.enrC <- enr
 }
 
 func (d *Discv4) Close() error {
 	// notify of closure
 	d.doneC <- struct{}{}
+	d.wg.Wait()
 	close(d.doneC)
 	return nil
 }
