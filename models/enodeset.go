@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	csvs "github.com/cortze/ragno/csv"
 	"sync"
 	"time"
 
@@ -42,7 +41,7 @@ func (s *EnodeSet) GetENRs() []*ENR {
 	return enrs
 }
 
-func (s *EnodeSet) rowComposer(rawRow []interface{}) []string {
+func (s *EnodeSet) RowComposer(rawRow []interface{}) []string {
 	row := make([]string, len(rawRow), len(rawRow))
 	for idx, item := range rawRow {
 		switch item.(type) {
@@ -55,6 +54,9 @@ func (s *EnodeSet) rowComposer(rawRow []interface{}) []string {
 		case time.Duration:
 			newItem := item.(time.Duration)
 			row[idx] = fmt.Sprintf("%.6f", float64(newItem.Nanoseconds()))
+		case DiscoveryType:
+			t := item.(DiscoveryType)
+			row[idx] = t.String()
 		default:
 			row[idx] = fmt.Sprint(item)
 		}
@@ -74,9 +76,8 @@ func (s *EnodeSet) generateRows() [][]interface{} {
 	return rows
 }
 
-func (s *EnodeSet) PeerRows() ([][]interface{}, csvs.RowComposer) {
-	rows := s.generateRows()
-	return rows, s.rowComposer
+func (s *EnodeSet) PeerRows() [][]interface{} {
+	return s.generateRows()
 }
 
 func (s *EnodeSet) Len() int {

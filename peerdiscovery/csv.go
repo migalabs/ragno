@@ -76,3 +76,7 @@ func (c *CSV) Close() error {
 	c.wg.Wait()
 	return nil
 }
+
+func (c *CSV) Type() models.DiscoveryType {
+	return models.CsvFile
+}

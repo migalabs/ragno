@@ -4,6 +4,7 @@ import (
 	csvs "github.com/cortze/ragno/csv"
 	"github.com/cortze/ragno/models"
 	"github.com/cortze/ragno/peerdiscovery"
+	"github.com/ethereum/go-ethereum/log"
 	"os"
 	"os/signal"
 	"sync"
@@ -101,7 +102,7 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 	}
 
 	// compose the nodeset
-	nodeSet := models.NewEnodeSet()
+	enrSet := models.NewEnodeSet()
 
 	closeC := make(chan struct{})
 
@@ -132,7 +133,7 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 					"seq":    node.Seq,
 					"pubkey": node.Pubkey,
 				}).Debug("new discv4 node")
-				err = nodeSet.AddNode(node)
+				err = enrSet.AddNode(node)
 				if err != nil {
 					logrus.Error(errors.Wrap(err, "unable to store new node"))
 				}
@@ -153,11 +154,17 @@ func runDiscv4Service(ctx *cli.Context, wg *sync.WaitGroup, doneC chan struct{},
 			select {
 			case <-closeC:
 				logrus.Info("shutdown detected (persister)")
-				csvExp.Export(nodeSet.PeerRows())
+				err := csvExp.Export(enrSet.PeerRows(), enrSet.RowComposer)
+				if err != nil {
+					log.Error("unable to export ENR-Set", err.Error())
+				}
 				return
 			case <-persistT.C:
-				logrus.Infof("flushing peer list (%d peers) to csv", nodeSet.Len())
-				csvExp.Export(nodeSet.PeerRows())
+				logrus.Infof("flushing peer list (%d peers) to csv", enrSet.Len())
+				err := csvExp.Export(enrSet.PeerRows(), enrSet.RowComposer)
+				if err != nil {
+					log.Error("unable to export ENR-Set", err.Error())
+				}
 				persistT.Reset(30 * time.Second)
 			}
 		}

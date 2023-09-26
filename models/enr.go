@@ -12,6 +12,20 @@ import (
 type ENRoption func(*ENR) error
 type DiscoveryType int8
 
+func (t DiscoveryType) String() string {
+	s := "Unknown"
+	switch t {
+	case Discovery4:
+		s = "discv4"
+	case Discovery5:
+		s = "discv5"
+	case CsvFile:
+		s = "csv"
+	default:
+	}
+	return s
+}
+
 const (
 	UnknownDiscovery DiscoveryType = iota
 	Discovery4
@@ -64,6 +78,7 @@ func FromDiscv4(en *enode.Node) ENRoption {
 		// (if updated, we will only update the LastTime seen)
 		enr.Node = en
 		enr.Record = en.Record()
+		enr.DiscType = Discovery4
 		enr.ID = en.ID()
 		enr.IP = en.IP().String()
 		enr.UDP = en.UDP()
@@ -88,6 +103,7 @@ func FromCSVline(line []string) ENRoption {
 		}
 		// apply the readed values
 		enr.Timestamp = lastSeen
+		enr.DiscType = CsvFile
 		enr.Node = node
 		enr.Record = node.Record()
 		enr.ID = node.ID()
@@ -109,6 +125,14 @@ func (n ENR) CSVheaders() []string {
 		"node_id", "last_seen",
 		"ip", "tcp", "udp",
 		"seq", "pubkey", "record",
+	}
+}
+
+func (n *ENR) GetHostInfo() *HostInfo {
+	return &HostInfo{
+		Pubkey: n.Node.Pubkey(),
+		IP:     n.IP,
+		TCP:    n.TCP,
 	}
 }
 

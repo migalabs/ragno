@@ -15,6 +15,7 @@ func (d *PostgresDBService) CreateENRtable() error {
 	CREATE TABLE IF NOT EXISTS enr (
 		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT PRIMARY KEY,
+		origin TEXT NOT NULL,
 		first_seen TIMESTAMP NOT NULL,
 		last_seen TIMESTAMP NOT NULL,
 		ip TEXT NOT NULL,
@@ -48,6 +49,7 @@ func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []in
 	query = `
 	INSERT INTO t_enr (
 		node_id,
+	    origin,
 		first_seen,
 		last_seen,
 		ip,
@@ -56,22 +58,24 @@ func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []in
 		seq,
 		pubkey,
 		record
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 	ON CONFLICT (node_id) DO UPDATE SET
 		node_id = $1,
-		last_seen = $3,
-		ip = $4,
-		tcp = $5,
-		udp = $6,
-		seq = $7,
-		pubkey = $8,
-		record = $9;
+	    origin = $2,
+		last_seen = $4,
+		ip = $5,
+		tcp = $6,
+		udp = $7,
+		seq = $8,
+		pubkey = $9,
+		record = $10;
 	`
 
 	pubBytes := crypto.FromECDSAPub(node.Node.Pubkey())
 	pubKey := hex.EncodeToString(pubBytes)
 
 	args = append(args, node.Node.ID().String())
+	args = append(args, node.DiscType.String())
 	args = append(args, node.Timestamp)
 	args = append(args, node.Timestamp)
 	args = append(args, node.Node.IP().String())

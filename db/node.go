@@ -61,7 +61,7 @@ func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAtt
 	`
 	args = append(args, attempt.ID.String())
 	args = append(args, attempt.Timestamp)
-	args = append(args, attempt.Error.String())
+	args = append(args, attempt.Error.Error())
 	args = append(args, attempt.Deprecable)
 
 	return query, args

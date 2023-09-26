@@ -121,7 +121,6 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, doneC chan struct{}) (chan *
 					"pubkey": models.PubkeyToString(node.Pubkey()),
 				}).Debug("new discv4 node")
 				enr, err := models.NewENR(
-					node,
 					models.FromDiscv4(node),
 					models.WithTimestamp(time.Now()))
 				if err != nil {
@@ -143,4 +142,8 @@ func (d *Discv4) Close() {
 	d.doneC <- struct{}{}
 	d.wg.Wait()
 	close(d.doneC)
+}
+
+func (c *Discv4) Type() models.DiscoveryType {
+	return models.Discovery4
 }

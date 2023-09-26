@@ -14,6 +14,10 @@ import (
 	peerDisc "github.com/cortze/ragno/peerdiscovery"
 )
 
+const (
+	retryDelay = 10 * time.Second
+)
+
 type Crawler struct {
 	ctx   context.Context
 	doneC chan struct{}
@@ -26,9 +30,7 @@ type Crawler struct {
 	// amount of concurrent dialers
 	concurrentDialers int
 	// amount of times to retry a connection
-	retryAmount int
-	// delay between retries (in seconds)
-	retryDelay int
+	retries int
 }
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
@@ -68,8 +70,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		host:              host,
 		db:                db,
 		concurrentDialers: conf.ConcurrentDialers,
-		retryAmount:       conf.RetryAmount,
-		retryDelay:        conf.RetryDelay,
+		retries:           conf.RetryAmount,
 		peerDisc:          discvService,
 	}
 	return crwl, nil
@@ -133,13 +134,26 @@ func (c *Crawler) Close() {
 
 func (c *Crawler) Connect(hInfo *models.HostInfo) {
 	// try to connect to the peer
-	for i := 0; i < c.retryAmount; i++ {
+	for i := 0; i < c.retries; i++ {
 		connAttempt, handsDetails := c.connect(hInfo)
-		// wait for the retry delay
-		time.Sleep(time.Duration(c.retryDelay) * time.Second)
-
+		// track the connection attempt
+		c.db.PersistNodeInfo(connAttempt, handsDetails)
+		// check if we need to retry
+		switch connAttempt.Status {
+		case models.FailedConnection:
+			// wait for the retry delay
+			ticker := time.NewTicker(retryDelay)
+			select {
+			case <-ticker.C:
+				continue
+			case <-c.ctx.Done():
+				break
+			}
+		case models.SuccessfulConnection:
+			// no need to retry again
+			break
+		}
 	}
-
 }
 
 func (c *Crawler) connect(hInfo *models.HostInfo) (models.ConnectionAttempt, models.NodeInfo) {
