@@ -122,7 +122,7 @@ func (n *ENR) IsValid() bool {
 
 func (n ENR) CSVheaders() []string {
 	return []string{
-		"node_id", "last_seen",
+		"node_id", "type", "last_seen",
 		"ip", "tcp", "udp",
 		"seq", "pubkey", "record",
 	}
@@ -139,6 +139,7 @@ func (n *ENR) GetHostInfo() *HostInfo {
 func (n *ENR) ComposeCSVItems() []interface{} {
 	items := make([]interface{}, 0, 9)
 	items = append(items, n.ID.String())
+	items = append(items, n.DiscType.String())
 	items = append(items, n.Timestamp.String())
 	items = append(items, n.IP)
 	items = append(items, strconv.Itoa(n.TCP))

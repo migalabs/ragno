@@ -12,7 +12,7 @@ import (
 
 func (d *PostgresDBService) CreateENRtable() error {
 	query := `
-	CREATE TABLE IF NOT EXISTS enr (
+	CREATE TABLE IF NOT EXISTS enrs (
 		id INT GENERATED ALWAYS AS IDENTITY,
 		node_id TEXT PRIMARY KEY,
 		origin TEXT NOT NULL,
@@ -34,7 +34,7 @@ func (d *PostgresDBService) CreateENRtable() error {
 
 func (d *PostgresDBService) DropENRtable() error {
 	query := `
-	DROP TABLE IF EXISTS enr;
+	DROP TABLE IF EXISTS enrs;
 	`
 	_, err := d.psqlPool.Exec(
 		d.ctx, query)
@@ -47,7 +47,7 @@ func (d *PostgresDBService) DropENRtable() error {
 func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []interface{}) {
 	log.Trace("Upserting new enr to Eth Nodes")
 	query = `
-	INSERT INTO t_enr (
+	INSERT INTO enrs (
 		node_id,
 	    origin,
 		first_seen,

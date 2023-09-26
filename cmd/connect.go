@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/cortze/ragno/crawler"
 	"github.com/cortze/ragno/models"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"time"
@@ -78,7 +79,10 @@ func connect(ctx *cli.Context) error {
 	}
 
 	node := models.ParseStringToEnode(connectOptions.enr)
-	enr, _ := models.NewENR(models.FromDiscv4(node))
+	enr, err := models.NewENR(models.FromDiscv4(node))
+	if err != nil {
+		return errors.Wrap(err, "unable to parse ENR")
+	}
 
 	details, err := host.Connect(enr.GetHostInfo())
 	if err != nil {

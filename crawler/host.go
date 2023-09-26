@@ -113,8 +113,11 @@ func WithHighestProtoVersion(version int) HostOption {
 // Connect attempts to connect a given node getting a list of details from each handshake
 func (h *Host) Connect(remoteN *models.HostInfo) (models.HandshakeDetails, error) {
 	conn, details, err := h.dial(remoteN)
+	if err != nil {
+		return details, err
+	}
 	defer conn.Close()
-	return details, err
+	return details, nil
 }
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
@@ -131,11 +134,10 @@ func (h *Host) dial(n *models.HostInfo) (ethtest.Conn, models.HandshakeDetails, 
 		return ethtest.Conn{}, models.HandshakeDetails{Error: err}, err
 	}
 	ds, err := h.makeHelloHandshake(&conn)
-	details := models.NodeDetailsFromDevp2pHandshake(ds)
 	if err != nil {
-		conn.Close()
-		return conn, models.HandshakeDetails{Error: err}, errors.Wrap(details.Error, "unable to initiate Handshake with node")
+		return conn, models.HandshakeDetails{Error: err}, errors.Wrap(err, "unable to initiate Handshake with node")
 	}
+	details := models.NodeDetailsFromDevp2pHandshake(ds)
 	return conn, details, err
 }
 
