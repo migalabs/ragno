@@ -1,88 +1,107 @@
-package csv
+package csvs
 
 import (
 	"encoding/csv"
 	"os"
 	"strings"
-
-	"github.com/cortze/ragno/modules"
 )
 
-const (
-	// csv columns
-	NODE_ID = iota
-	FIRST_SEEN
-	LAST_SEEN
-	IP
-	TCP
-	UDP
-	SEQ
-	PK
-	ENR
-)
+type RowComposer func([]interface{}) []string
 
 // for now only supports list of enr so far
-type CSVImporter struct {
-	path string
-	r    *csv.Reader
+type CSV struct {
+	file    string
+	columns []string
+	// exporter
+	f *os.File
+	// importer
+	r *csv.Reader
 }
 
-func NewCsvImporter(p string) (*CSVImporter, error) {
-	f, err := os.Open(p)
+func NewCsvExporter(file string, columns []string) (*CSV, error) {
+	csvFile, err := os.Create(file)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close() // Close the file when done
+	return &CSV{
+		file:    file,
+		columns: columns,
+		f:       csvFile,
+	}, nil
+}
 
-	fileContent, err := os.ReadFile(p)
+func NewCsvImporter(file string) (*CSV, error) {
+	f, err := os.Open(file)
+	defer f.Close()
+	if err != nil {
+		return nil, err
+	} // Close the file when done
+
+	fileContent, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
-	return &CSVImporter{
-		path: p,
+
+	return &CSV{
+		file: file,
 		r:    csv.NewReader(strings.NewReader(string(fileContent))),
 	}, nil
 }
 
-func (i *CSVImporter) ReadELNodes() ([]*modules.ELNode, error) {
-	// get the lines of the file
-	lines, err := i.items()
-	if err != nil {
-		return nil, err
+// --- Exporter ----
+func (c *CSV) composeRow(items []string) string {
+	newRow := ""
+	for _, i := range items {
+		if newRow == "" {
+			newRow = i
+			continue
+		}
+		newRow = newRow + "," + i
 	}
-
-	// remove the header
-	lines = lines[1:]
-
-	// create the list of ELNodeInfo
-	enrs := make([]*modules.ELNode, 0, len(lines))
-
-	// parse the file
-	for _, line := range lines {
-		// create the modules.ELNode
-		elNodeInfo := new(modules.ELNode)
-		elNodeInfo.Enode = modules.ParseStringToEnr(line[ENR])
-		elNodeInfo.Enr = line[ENR]
-		elNodeInfo.FirstTimeSeen = line[FIRST_SEEN]
-		elNodeInfo.LastTimeSeen = line[LAST_SEEN]
-		// add the struct to the list
-		enrs = append(enrs, elNodeInfo)
-	}
-	return enrs, nil
+	return newRow + "\n"
 }
 
-func (i *CSVImporter) items() ([][]string, error) {
+func (c *CSV) writeLine(row string) error {
+	_, err := c.f.WriteString(row)
+	return err
+}
+
+func (c *CSV) Export(rows [][]interface{}, rowComposer RowComposer) error {
+	// reset index in the file
+	c.f.Seek(0, 0)
+	defer c.f.Sync()
+	headerRow := c.composeRow(c.columns)
+	err := c.writeLine(headerRow)
+	if err != nil {
+		return nil
+	}
+	for _, row := range rows {
+		row := c.composeRow(rowComposer(row))
+		err = c.writeLine(row)
+		if err != nil {
+			return nil
+		}
+	}
+	return nil
+}
+
+func (c *CSV) Close() error {
+	return c.f.Close()
+}
+
+// --- Importer ---
+func (i *CSV) items() ([][]string, error) {
 	return i.r.ReadAll()
 }
 
-func (i *CSVImporter) nextLine() ([]string, error) {
+func (i *CSV) nextLine() ([]string, error) {
 	return i.r.Read()
 }
 
-func (i *CSVImporter) changeSeparator(sep rune) {
+func (i *CSV) changeSeparator(sep rune) {
 	i.r.Comma = sep
 }
 
-func (i *CSVImporter) changeCommentChar(c rune) {
+func (i *CSV) changeCommentChar(c rune) {
 	i.r.Comment = c
 }

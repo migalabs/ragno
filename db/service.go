@@ -35,7 +35,7 @@ type PostgresDBService struct {
 	wgDBWriters   sync.WaitGroup
 
 	writeChan chan Persistable // Receive persist requests
-	stop      bool
+	doneC     chan struct{}
 	workerNum int
 }
 
@@ -62,6 +62,7 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 		psqlPool:      psqlPool,
 		writeChan:     make(chan Persistable, workerNum),
 		workerNum:     workerNum,
+		doneC:         make(chan struct{}),
 	}
 	// init the psql db
 	err = psqlDB.init(ctx, psqlDB.psqlPool)
@@ -73,8 +74,13 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 }
 
 func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error {
+	var err error
 	// create the tables
-	err := p.createNodeTable()
+	err = p.CreateENRtable()
+	if err != nil {
+		return err
+	}
+	err = p.CreateNodeInfoTable()
 	if err != nil {
 		return err
 	}
@@ -82,27 +88,23 @@ func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error 
 }
 
 func (p *PostgresDBService) Finish() {
-	p.stop = true
+	for i := 0; i < p.workerNum; i++ {
+		p.doneC <- struct{}{}
+	}
 	p.wgDBWriters.Wait()
-	wlog.Infof("Routines finished...")
-	wlog.Infof("closing connection to database server...")
 	p.psqlPool.Close()
-	wlog.Infof("connection to database server closed...")
 	close(p.writeChan)
 }
 
 func (p *PostgresDBService) runWriters() {
-
-	wlog.Info("Launching ELNode Writers")
 	wlog.Infof("Launching %d ELNode Writers", p.workerNum)
 	for i := 0; i < p.workerNum; i++ {
 		p.wgDBWriters.Add(1)
 		go func(dbWriterID int) {
 			defer p.wgDBWriters.Done()
 			batcher := NewQueryBatch(p.ctx, p.psqlPool, MAX_BATCH_QUEUE)
-			wlogWriter := wlog.WithField("DBWriter", dbWriterID)
+			wlogWriter := wlog.WithField("db-writer", dbWriterID)
 			ticker := time.NewTicker(RoutineFlushTimeout)
-		loop:
 			for {
 				select {
 				case persis := <-p.writeChan:
@@ -114,12 +116,19 @@ func (p *PostgresDBService) runWriters() {
 					if batcher.IsReadyToPersist() {
 						err := batcher.PersistBatch()
 						if err != nil {
-							wlogWriter.Errorf("Error processing batch", err.Error())
+							wlogWriter.Error("Error processing batch", err.Error())
 						}
 					}
+				case <-p.doneC:
+					wlog.Tracef("flushing batcher")
+					err := batcher.PersistBatch()
+					if err != nil {
+						wlogWriter.Errorf("Error processing batch", err.Error())
+					}
+					return
 
 				case <-p.ctx.Done():
-					break loop
+					return
 
 				case <-ticker.C:
 					// if limit reached or no more queue and pending tasks
@@ -130,13 +139,8 @@ func (p *PostgresDBService) runWriters() {
 							wlogWriter.Errorf("Error processing batch", err.Error())
 						}
 					}
-
-					if p.stop && len(p.writeChan) == 0 {
-						break loop
-					}
 				}
 			}
 		}(i)
 	}
-
 }

@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/cortze/ragno/db"
+	"github.com/cortze/ragno/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 )
 
@@ -111,55 +111,41 @@ func WithHighestProtoVersion(version int) HostOption {
 // --- host related methods ---
 
 // Connect attempts to connect a given node getting a list of details from each handshake
-func (h *Host) Connect(remoteN *enode.Node) ethtest.HandshakeDetails {
-	conn, details := h.dial(remoteN)
-	if details.Error != nil {
-		return details
+func (h *Host) Connect(remoteN *models.HostInfo) (models.HandshakeDetails, error) {
+	conn, details, err := h.dial(remoteN)
+	if err != nil {
+		return details, err
 	}
 	defer conn.Close()
-	return details
+	return details, nil
 }
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
-func (h *Host) dial(n *enode.Node) (ethtest.Conn, ethtest.HandshakeDetails) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP(), n.TCP()))
+func (h *Host) dial(n *models.HostInfo) (ethtest.Conn, models.HandshakeDetails, error) {
+	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP, n.TCP))
 	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}
+		return ethtest.Conn{}, models.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
 	}
 	conn := ethtest.Conn{
-		Conn: rlpx.NewConn(netConn, n.Pubkey()),
+		Conn: rlpx.NewConn(netConn, n.Pubkey),
 	}
 	_, err = conn.Handshake(h.privk)
 	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: err}
+		return ethtest.Conn{}, models.HandshakeDetails{Error: err}, err
 	}
-	details := h.makeHelloHandshake(&conn)
-	if details.Error != nil {
-		conn.Close()
-		return conn, ethtest.HandshakeDetails{Error: errors.Wrap(details.Error, "unable to initiate Handshake with node")}
+	ds, err := h.makeHelloHandshake(&conn)
+	if err != nil {
+		return conn, models.HandshakeDetails{Error: err}, errors.Wrap(err, "unable to initiate Handshake with node")
 	}
-	return conn, details
+	details := models.NodeDetailsFromDevp2pHandshake(ds)
+	return conn, details, err
 }
 
 // makeHelloHandshake makes the first handshake (using the method from @cortze 's fork) to identify
 // the client name and capabilities
-func (h *Host) makeHelloHandshake(conn *ethtest.Conn) ethtest.HandshakeDetails {
+func (h *Host) makeHelloHandshake(conn *ethtest.Conn) (ethtest.HandshakeDetails, error) {
 	return conn.DetailedHandshake(h.privk, h.caps, h.highestProtoVersion)
 }
-
-/*
-type HostInfo struct {
-	IP string
-	Port int
-	ClientType string
-	NetworkID uint64
-	Capabilities []p2p.Cap
-	ForkID forkid.ID
-	Blockheight     string
-	TotalDifficulty *big.Int
-	HeadHash        common.Hash
-}
-*/
 
 func (h *Host) Close() {
 	// close all existing connections

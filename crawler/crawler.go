@@ -2,55 +2,40 @@ package crawler
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
-
 	"time"
 
 	"github.com/cortze/ragno/db"
-	"github.com/cortze/ragno/modules"
+	"github.com/cortze/ragno/models"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	peerDisc "github.com/cortze/ragno/peerDiscoverer"
+	peerDisc "github.com/cortze/ragno/peerdiscovery"
+)
+
+const (
+	retryDelay = 10 * time.Second
 )
 
 type Crawler struct {
-	ctx context.Context
-
+	ctx   context.Context
+	doneC chan struct{}
 	// host
 	host *Host
-
 	// database
 	db *db.PostgresDBService
-
 	// discovery
-	peerDisc peerDisc.PeerDiscoverer
-
-	// peer connections
-
-	// ip_locator
-
-	// prometheus
-
+	peerDisc *peerDisc.PeerDiscovery
 	// amount of concurrent dialers
 	concurrentDialers int
-
 	// amount of times to retry a connection
-	retryAmount int
-
-	// delay between retries (in seconds)
-	retryDelay int
+	retries int
 }
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
-	// create a private key
-
-	// create metrics module
-
 	// create db crawler
-	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.ConcurrentSavers)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.Persisters)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
@@ -69,129 +54,127 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	}
 
 	// create the peer discoverer
-	var discoverer peerDisc.PeerDiscoverer
-	if conf.File != "" {
-		discoverer, err = peerDisc.NewCSVPeerDiscoverer(conf.File)
-	} else {
-		discoverer, err = peerDisc.NewDisv4PeerDiscoverer(conf.DiscPort)
-	}
+	discv4, err := peerDisc.NewDiscv4(ctx, conf.HostPort)
 	if err != nil {
-		logrus.Error("Couldn't create peer discoverer")
+		logrus.Error(err)
 		return nil, err
 	}
-
-	// create the discovery modules
-
+	discvService, err := peerDisc.NewPeerDiscovery(ctx, discv4, db)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
 	crwl := &Crawler{
 		ctx:               ctx,
+		doneC:             make(chan struct{}, 1),
 		host:              host,
 		db:                db,
-		concurrentDialers: conf.ConcurrentDialers,
-		retryAmount:       conf.RetryAmount,
-		retryDelay:        conf.RetryDelay,
-		peerDisc:          discoverer,
+		concurrentDialers: conf.Dialers,
+		retries:           conf.Retries,
+		peerDisc:          discvService,
 	}
-
-	// add all the metrics for each module to the prometheus endp
-
 	return crwl, nil
 }
 
 func (c *Crawler) Run() error {
-
-	// channel to receive the peers from the peer discoverer
-	connChan := make(chan *modules.ELNode, c.concurrentDialers)
-
-	// wait group for the peer discoverer
-	wgDiscoverer := sync.WaitGroup{}
-	wgDiscoverer.Add(1)
-
 	// start the peer discoverer
-	go func() {
-		defer wgDiscoverer.Done()
-		logrus.Info("Starting peer discoverer")
-		err := c.peerDisc.Run(connChan)
-		if err != nil {
-			logrus.Error("Error in peer discoverer: ", err)
-		}
-		close(connChan)
-	}()
+	logrus.Info("Starting peer discoverer")
+	err := c.peerDisc.Run()
+	if err != nil {
+		return errors.Wrap(err, "starting peer-discovery")
+	}
 
 	// start workers to connect to peers
 	var wgDialers sync.WaitGroup
-
-	closeC := make(chan os.Signal, 1)
-	signal.Notify(closeC, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-
 	logrus.Info("Starting ", c.concurrentDialers, " workers to connect to peers")
 	for i := 0; i < c.concurrentDialers; i++ {
 		wgDialers.Add(1)
 		go func(i int) {
 			defer wgDialers.Done()
-		loop:
 			for {
 				select {
-				case peer, ok := <-connChan:
-					// if the channel is closed, break the loop
-					if !ok {
-						break loop
-					}
-					// try to connect to the peer
-					logrus.Trace("Connecting to: ", peer.Enr, " , worker: ", i)
-					c.Connect(peer)
-					// save the peer
-					c.db.PersistNode(*peer)
 				case <-c.ctx.Done():
 					return
 
-				case <-closeC:
-					break loop
+				case <-c.doneC:
+					logrus.Debug("shutdown detected at worker, closing it")
+					return
 				}
 			}
 		}(i)
 	}
-	wgDiscoverer.Wait()
 	logrus.Info("Waiting for dialers to finish")
 	wgDialers.Wait()
-
+	close(c.doneC)
 	return nil
-}
-
-func (c *Crawler) Connect(nodeInfo *modules.ELNode) {
-
-	// try to connect to the peer
-	for i := 0; i < c.retryAmount; i++ {
-		nodeInfo.Hinfo = c.host.Connect(nodeInfo.Enode)
-		if nodeInfo.Hinfo.Error == nil {
-			logrus.Trace("Node: ", nodeInfo.Enr, " connected")
-			return
-		}
-
-		logrus.WithFields(logrus.Fields{
-			"retry": i,
-			"error": nodeInfo.Hinfo.Error,
-		}).Trace("Node: ", nodeInfo.Enr, " failed to connect")
-
-		if i == c.retryAmount-1 || !ShouldRetry(nodeInfo.Hinfo.Error) {
-			break
-		}
-		// wait for the retry delay
-		time.Sleep(time.Duration(c.retryDelay) * time.Second)
-	}
-	logrus.WithFields(logrus.Fields{
-		"error": nodeInfo.Hinfo.Error,
-	}).Trace("Couldn't connect to node: ", nodeInfo.Enr)
 }
 
 func (c *Crawler) Close() {
 	// finish discovery
-
-	// stop host
-
-	// stop IP locator
-
+	logrus.Info("crawler: closing peer-discovery")
+	c.peerDisc.Close()
+	// stop workers
+	logrus.Info("crawler: closing dialers")
+	for i := 0; i < c.concurrentDialers; i++ {
+		c.doneC <- struct{}{}
+	}
+	// close host
+	logrus.Info("crawler: closing host")
+	c.host.Close()
 	// stop db
+	logrus.Info("crawler: closing database")
 	c.db.Finish()
-
 	logrus.Info("Ragno closing routine done! See you!")
+}
+
+func (c *Crawler) Connect(hInfo *models.HostInfo) {
+	// try to connect to the peer
+	for i := 0; i < c.retries; i++ {
+		connAttempt, handsDetails := c.connect(hInfo)
+		// track the connection attempt
+		c.db.PersistNodeInfo(connAttempt, handsDetails)
+		// check if we need to retry
+		switch connAttempt.Status {
+		case models.FailedConnection:
+			// wait for the retry delay
+			ticker := time.NewTicker(retryDelay)
+			select {
+			case <-ticker.C:
+				continue
+			case <-c.ctx.Done():
+				break
+			}
+		case models.SuccessfulConnection:
+			// no need to retry again
+			break
+		}
+	}
+}
+
+func (c *Crawler) connect(hInfo *models.HostInfo) (models.ConnectionAttempt, models.NodeInfo) {
+	nodeID := enode.PubkeyToIDV4(hInfo.Pubkey)
+
+	connAttempt := models.NewConnectionAttempt(nodeID)
+	nInfo, _ := models.NewNodeInfo(nodeID, models.WithHostInfo(*hInfo))
+
+	handshakeDetails, err := c.host.Connect(hInfo)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"node-id": nodeID.String(),
+			"error":   err.Error(),
+		}).Trace("failed connection")
+		connAttempt.Status = models.FailedConnection
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"node-id":      nodeID.String(),
+			"client":       handshakeDetails.ClientName,
+			"capabilities": handshakeDetails.Capabilities,
+		}).Trace("successfull connection")
+		connAttempt.Status = models.SuccessfulConnection
+		models.WithHandShakeDetails(handshakeDetails)
+	}
+	connAttempt.Error = err
+	connAttempt.Deprecable = false // TODO: upgrade this
+
+	return connAttempt, *nInfo
 }
