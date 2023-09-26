@@ -35,7 +35,7 @@ type Crawler struct {
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create db crawler
-	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.ConcurrentSavers)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.Persisters)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
@@ -54,7 +54,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	}
 
 	// create the peer discoverer
-	discv4, err := peerDisc.NewDiscv4(conf.DiscPort)
+	discv4, err := peerDisc.NewDiscv4(conf.HostPort)
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -69,8 +69,8 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		doneC:             make(chan struct{}, 1),
 		host:              host,
 		db:                db,
-		concurrentDialers: conf.ConcurrentDialers,
-		retries:           conf.RetryAmount,
+		concurrentDialers: conf.Dialers,
+		retries:           conf.Retries,
 		peerDisc:          discvService,
 	}
 	return crwl, nil
