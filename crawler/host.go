@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/cortze/ragno/db"
+	"github.com/cortze/ragno/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 )
 
@@ -111,29 +111,30 @@ func WithHighestProtoVersion(version int) HostOption {
 // --- host related methods ---
 
 // Connect attempts to connect a given node getting a list of details from each handshake
-func (h *Host) Connect(remoteN *enode.Node) (ethtest.HandshakeDetails, error) {
+func (h *Host) Connect(remoteN *models.HostInfo) (models.HandshakeDetails, error) {
 	conn, details, err := h.dial(remoteN)
 	defer conn.Close()
 	return details, err
 }
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
-func (h *Host) dial(n *enode.Node) (ethtest.Conn, ethtest.HandshakeDetails, error) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP(), n.TCP()))
+func (h *Host) dial(n *models.HostInfo) (ethtest.Conn, models.HandshakeDetails, error) {
+	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP, n.TCP))
 	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
+		return ethtest.Conn{}, models.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
 	}
 	conn := ethtest.Conn{
-		Conn: rlpx.NewConn(netConn, n.Pubkey()),
+		Conn: rlpx.NewConn(netConn, n.Pubkey),
 	}
 	_, err = conn.Handshake(h.privk)
 	if err != nil {
-		return ethtest.Conn{}, ethtest.HandshakeDetails{Error: err}, err
+		return ethtest.Conn{}, models.HandshakeDetails{Error: err}, err
 	}
-	details, err := h.makeHelloHandshake(&conn)
+	ds, err := h.makeHelloHandshake(&conn)
+	details := models.NodeDetailsFromDevp2pHandshake(ds)
 	if err != nil {
 		conn.Close()
-		return conn, ethtest.HandshakeDetails{Error: err}, errors.Wrap(details.Error, "unable to initiate Handshake with node")
+		return conn, models.HandshakeDetails{Error: err}, errors.Wrap(details.Error, "unable to initiate Handshake with node")
 	}
 	return conn, details, err
 }
