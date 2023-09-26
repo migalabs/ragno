@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"github.com/cortze/ragno/crawler"
-	"github.com/cortze/ragno/modules"
+	"github.com/cortze/ragno/models"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"time"
@@ -77,28 +78,27 @@ func connect(ctx *cli.Context) error {
 		return err
 	}
 
-	ElNode := modules.ELNode{
-		Enr:           connectOptions.enr,
-		Enode:         modules.ParseStringToEnr(connectOptions.enr),
-		LastTimeSeen:  time.Now(),
-		FirstTimeSeen: time.Now(),
+	node := models.ParseStringToEnode(connectOptions.enr)
+	enr, err := models.NewENR(models.FromDiscv4(node))
+	if err != nil {
+		return errors.Wrap(err, "unable to parse ENR")
 	}
 
-	ElNode.Hinfo = host.Connect(ElNode.Enode)
-	if ElNode.Hinfo.Error != nil {
-		logrus.Info("Couldn't connect to Node: ", ElNode.Enr, ": ", ElNode.Hinfo.Error)
+	details, err := host.Connect(enr.GetHostInfo())
+	if err != nil {
+		logrus.Info("Couldn't connect to Node: ", enr.ID, ": ", err)
 		return nil
 	}
 
-	logrus.Info("Connected to Node: ", ElNode.Enr)
-	logrus.Info("Node's IP: ", ElNode.Enode.IP())
-	logrus.Info("Node's TCP: ", ElNode.Enode.TCP())
-	logrus.Info("Node's UDP: ", ElNode.Enode.UDP())
-	logrus.Info("Node's ID: ", ElNode.Enode.ID().String())
-	logrus.Info("Node's Pubkey: ", modules.PubkeyToString(ElNode.Enode.Pubkey()))
-	logrus.Info("Node's Seq: ", ElNode.Enode.Seq())
-	logrus.Info("Node's Client: ", ElNode.Hinfo.ClientName)
-	logrus.Info("Node's Capabilities: ", ElNode.Hinfo.Capabilities)
-	logrus.Info("Node's SoftwareInfo: ", ElNode.Hinfo.SoftwareInfo)
+	logrus.Info("Connected to Node: ", enr.Node.String())
+	logrus.Info("Node's IP: ", enr.IP)
+	logrus.Info("Node's TCP: ", enr.TCP)
+	logrus.Info("Node's UDP: ", enr.UDP)
+	logrus.Info("Node's ID: ", enr.ID.String())
+	logrus.Info("Node's Pubkey: ", enr.Pubkey)
+	logrus.Info("Node's Seq: ", enr.Seq)
+	logrus.Info("Node's Client: ", details.ClientName)
+	logrus.Info("Node's Capabilities: ", details.Capabilities)
+	logrus.Info("Node's SoftwareInfo: ", details.SoftwareInfo)
 	return nil
 }

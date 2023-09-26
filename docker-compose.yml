@@ -1,0 +1,25 @@
+version: "3.7"
+
+networks:
+  cluster:
+
+services:
+  db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DATABASE=${DB_DATABASE}
+    volumes:
+      - type: bind
+        source: ./ragno/init-db.sql
+        target: /docker-entrypoint-initdb.d/docker_postgres_init.sql
+      - ./ragno/postgres_db:/var/lib/postgresql/data
+    networks: [ cluster ]
+    ports:
+      - "127.0.0.1:${DB_PORT}:5432"
+    healthcheck:
+      test: pg_isready -U ${DB_USER} -d ${DB_DATABASE}
+      interval: 10s
+      timeout: 3s
+      retries: 3

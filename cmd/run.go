@@ -30,22 +30,16 @@ var RunCommand = &cli.Command{
 			EnvVars:     []string{"RAGNO_DB_ENDPOINT"},
 			DefaultText: crawler.DefaultDBEndpoint,
 		},
-		&cli.IntFlag{
-			Name:    "disc-port",
-			Usage:   "port that the tool will use for discovery purposes",
-			Aliases: []string{"dp"},
-			EnvVars: []string{"RAGNO_PORT"},
-		},
 		&cli.StringFlag{
 			Name:        "ip",
 			Usage:       "IP that will be assigned to the host",
-			EnvVars:     []string{"RAGNO_HOST_IP"},
+			EnvVars:     []string{"RAGNO_IP"},
 			DefaultText: crawler.DefaultHostIP,
 		},
 		&cli.IntFlag{
 			Name:    "port",
 			Usage:   "Port that will be used by the crawler to establish TCP connections with the rest of the network",
-			EnvVars: []string{"RAGNO_HOST_PORT"},
+			EnvVars: []string{"RAGNO_PORT"},
 		},
 		&cli.StringFlag{
 			Name:        "metrics-ip",
@@ -59,33 +53,22 @@ var RunCommand = &cli.Command{
 			EnvVars: []string{"RAGNO_METRICS_PORT"},
 		},
 		&cli.StringFlag{
-			Name:    "file",
-			Usage:   "Path to the csv file with the Enr records to connect",
-			Aliases: []string{"f"},
-		},
-		&cli.StringFlag{
-			Name:    "concurrent-dialers",
+			Name:    "dialers",
 			Usage:   "Number of workers that will be used to connect to the nodes",
 			Aliases: []string{"cd"},
-			EnvVars: []string{"RAGNO_DIALER_NUM"},
+			EnvVars: []string{"RAGNO_DIALERS"},
 		},
 		&cli.StringFlag{
-			Name:    "concurrent-savers",
+			Name:    "persisters",
 			Usage:   "Number of workers that will be used to save into the DB",
 			Aliases: []string{"cs"},
 			EnvVars: []string{"RAGNO_SAVER_NUM"},
 		},
 		&cli.IntFlag{
-			Name:    "retry-amount",
+			Name:    "retries",
 			Usage:   "Number of times that the crawler will try to connect to a node before giving up",
 			Aliases: []string{"ra"},
 			EnvVars: []string{"RAGNO_RETRY_AMOUNT"},
-		},
-		&cli.IntFlag{
-			Name:    "retry-delay",
-			Usage:   "Number of seconds that the crawler will wait before retrying to connect to a node",
-			Aliases: []string{"rd"},
-			EnvVars: []string{"RAGNO_RETRY_DELAY"},
 		},
 	},
 }
@@ -113,9 +96,8 @@ func RunRagno(ctx *cli.Context) error {
 	go func() {
 		sig := <-sigChan
 		log.Warnf("received signal %s - stopping ragno", sig.String())
-		signal.Stop(sigChan)
-		close(sigChan)
 		ragno.Close()
+		close(sigChan)
 	}()
 
 	// start the crawler
