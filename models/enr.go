@@ -34,7 +34,7 @@ type ENR struct {
 	Seq       uint64
 }
 
-func NewENR(node *enode.Node, opts ...ENRoption) (*ENR, error) {
+func NewENR(opts ...ENRoption) (*ENR, error) {
 	enr := new(ENR)
 	for _, opt := range opts {
 		err := opt(enr)
@@ -63,13 +63,39 @@ func FromDiscv4(en *enode.Node) ENRoption {
 		// Set First and Last time we saw the Node
 		// (if updated, we will only update the LastTime seen)
 		enr.Node = en
+		enr.Record = en.Record()
 		enr.ID = en.ID()
+		enr.IP = en.IP().String()
 		enr.UDP = en.UDP()
 		enr.TCP = en.TCP()
-		enr.IP = en.IP().String()
 		enr.Seq = en.Seq()
-		enr.Record = en.Record()
 		enr.Pubkey = PubkeyToString(en.Pubkey())
+		return nil
+	}
+}
+
+func FromCSVline(line []string) ENRoption {
+	return func(enr *ENR) error {
+		node := ParseStringToEnode(line[7]) // Record field
+		err := node.ValidateComplete()
+		if err != nil {
+			return err
+		}
+
+		lastSeen, err := time.Parse(time.RFC3339Nano, line[1])
+		if err != nil {
+			return err
+		}
+		// apply the readed values
+		enr.Timestamp = lastSeen
+		enr.Node = node
+		enr.Record = node.Record()
+		enr.ID = node.ID()
+		enr.Pubkey = PubkeyToString(node.Pubkey())
+		enr.IP = node.IP().String()
+		enr.UDP = node.UDP()
+		enr.TCP = node.TCP()
+		enr.Seq = node.Seq()
 		return nil
 	}
 }
@@ -78,8 +104,16 @@ func (n *ENR) IsValid() bool {
 	return (len(n.ID) > 0) && (len(n.IP) > 0) && (n.UDP > 0)
 }
 
-func (n *ENR) ComposeCSVItems() []string {
-	items := make([]string, 0, 9)
+func (n ENR) CSVheaders() []string {
+	return []string{
+		"node_id", "last_seen",
+		"ip", "tcp", "udp",
+		"seq", "pubkey", "record",
+	}
+}
+
+func (n *ENR) ComposeCSVItems() []interface{} {
+	items := make([]interface{}, 0, 9)
 	items = append(items, n.ID.String())
 	items = append(items, n.Timestamp.String())
 	items = append(items, n.IP)

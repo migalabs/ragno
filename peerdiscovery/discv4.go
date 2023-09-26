@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cortze/ragno/models"
-	"github.com/cortze/ragno/modules"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -135,14 +134,13 @@ func (d *Discv4) runDiscv4Service(ctx *cli.Context, doneC chan struct{}) (chan *
 	return d.enrC, nil
 }
 
-func (d *Discv4) notifyNewNode(enr *modules.ENR) {
+func (d *Discv4) notifyNewNode(enr *models.ENR) {
 	d.enrC <- enr
 }
 
-func (d *Discv4) Close() error {
+func (d *Discv4) Close() {
 	// notify of closure
 	d.doneC <- struct{}{}
 	d.wg.Wait()
 	close(d.doneC)
-	return nil
 }

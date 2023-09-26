@@ -7,19 +7,17 @@ import (
 
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
-	"github.com/cortze/ragno/modules"
-
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 type Discoverer interface {
 	// Run starts the peer discovery process or get the nodes from the file
-	Run() (chan *modules.ENR, error)
+	Run() (chan *models.ENR, error)
 	// Type returns that
 	Type() models.DiscoveryType
 	// Close the peer discovery
-	Close() error
+	Close()
 }
 
 func StringToDiscoveryType(s string) models.DiscoveryType {

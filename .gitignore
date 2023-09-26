@@ -1,3 +1,8 @@
+# all kind of CSV files
 *.csv
+
+# The folder that keeps the binaries
 build/
+
+# The IDE folder
 .idea
