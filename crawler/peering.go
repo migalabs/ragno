@@ -1,23 +1,417 @@
 package crawler
 
-import "context"
+import (
+	"context"
+	"github.com/cortze/ragno/db"
+	"github.com/cortze/ragno/models"
+	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/sirupsen/logrus"
+	"sort"
+	"sync"
+	"time"
+)
+
+const (
+	DeprecationMargin = 3 * time.Hour
+	InitDelay         = 2 * time.Second
+)
 
 type Peering struct {
-	ctx     context.Context
-	workers int
+	// control
+	ctx             context.Context
+	orchersterWG    sync.WaitGroup
+	dialersWG       sync.WaitGroup
+	dialersDoneC    chan struct{}
+	orchersterDoneC chan struct{}
+	dialC           chan models.HostInfo
+	dialers         int
+
+	// necessary services
 	host    *Host
-	nodeSet *nodeSet
+	db      *db.PostgresDBService
+	nodeSet *NodeOrderedSet
 }
 
-type nodeSet struct {
+func NewPeeringService(ctx context.Context, h *Host, database *db.PostgresDBService, dialers int) *Peering {
+	return &Peering{
+		ctx:             ctx,
+		dialersDoneC:    make(chan struct{}),
+		orchersterDoneC: make(chan struct{}),
+		dialC:           make(chan models.HostInfo),
+		host:            h,
+		db:              database,
+		nodeSet:         NewNodeOrderedSet(),
+		dialers:         dialers,
+	}
 }
 
-func (s *nodeSet) updateFromDB() {
+func (p *Peering) Run() error {
+	logrus.Info("running peering service")
+	// run dialers
+	logrus.Infof("spawning %d peering dialers", p.dialers)
+	for workerID := 0; workerID < p.dialers; workerID++ {
+		p.dialersWG.Add(1)
+		go p.peeringWorker(workerID)
+	}
+	// run orchester
+	p.orchersterWG.Add(1)
+	go p.runOrcherster()
 
+	// wait for the process to finish
+	p.orchersterWG.Wait()
+	for i := 0; i < p.dialers; i++ {
+		p.dialersDoneC <- struct{}{}
+	}
+	p.dialersWG.Wait()
+	close(p.dialC)
+	close(p.dialersDoneC)
+	close(p.orchersterDoneC)
+	return nil
 }
 
-func (s *nodeSet) orderSet() {
-
+func (p *Peering) Close() {
+	// trigger the cascade closure starting by the orchester
+	p.orchersterDoneC <- struct{}{}
 }
 
-// sorting
+func (p *Peering) runOrcherster() {
+	logEntry := logrus.WithField("ocherster", 1)
+	logEntry.Info("spawning peering dialer orcherster")
+	defer func() {
+		logEntry.Info("closing peering dial orcherster")
+		p.orchersterWG.Done()
+	}()
+	for {
+		// give prior to shut down notifications
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-p.orchersterDoneC:
+			return
+		default:
+			if p.nodeSet.IsThereNext() {
+				nextNode := p.nodeSet.NextNode()
+				p.dialC <- nextNode.hostInfo
+			} else {
+				// check if it's empty
+				if p.nodeSet.IsEmpty() {
+					startT := time.NewTicker(InitDelay)
+				initDelay:
+					// still check the contexts in case we have to interrupt
+					select {
+					case <-p.ctx.Done():
+						return
+					case <-p.orchersterDoneC:
+						return
+					case <-startT.C:
+						break initDelay
+					}
+				}
+				// update the nodeSet
+				newNodeSet, err := p.db.GetNonDeprecatedNodes()
+				if err != nil {
+					logEntry.Panic("unable to update local set of nodes from DB")
+				}
+				p.nodeSet.UpdateListFromSet(newNodeSet)
+			}
+		}
+	}
+}
+
+func (p *Peering) peeringWorker(workerID int) {
+	logEntry := logrus.WithField("dialer-id", workerID)
+	logEntry.Debug("spawning peering dialer")
+	defer func() {
+		logEntry.Info("closing peering dialer")
+		p.dialersWG.Done()
+	}()
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-p.dialersDoneC:
+			return
+		case node := <-p.dialC:
+			p.Connect(node)
+		}
+	}
+}
+
+// Connect applies the logic of connecting the remote node and persist the necessary results from the attempt
+func (p *Peering) Connect(hInfo models.HostInfo) {
+	// try to connect to the peer
+	connAttempt, handsDetails := p.connect(hInfo)
+	// handle the result (check if it's deprecable) and update local perception
+	connAttempt.Deprecable = p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, connAttempt)
+	// persist the node with all the necessary info
+	p.db.PersistNodeInfo(connAttempt, handsDetails)
+}
+
+// connect offers the low-level connection with the remote peer
+func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, models.NodeInfo) {
+	logrus.Debug("new node to dial", hInfo.ID.String())
+	nodeID := enode.PubkeyToIDV4(hInfo.Pubkey)
+	connAttempt := models.NewConnectionAttempt(nodeID)
+	nInfo, _ := models.NewNodeInfo(nodeID, models.WithHostInfo(hInfo))
+
+	handshakeDetails, err := p.host.Connect(&hInfo)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"node-id": nodeID.String(),
+			"error":   err.Error(),
+		}).Debug("failed connection")
+		connAttempt.Error = err
+		connAttempt.Status = models.FailedConnection
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"node-id":      nodeID.String(),
+			"client":       handshakeDetails.ClientName,
+			"capabilities": handshakeDetails.Capabilities,
+		}).Info("successfull connection")
+		connAttempt.Error = ethtest.ErrorNone
+		connAttempt.Status = models.SuccessfulConnection
+		nInfo.HandshakeDetails = handshakeDetails
+	}
+	return connAttempt, *nInfo
+}
+
+// --- Ordered Set ---
+
+// List of Nodes ordered by time for next connection
+type NodeOrderedSet struct {
+	m        sync.RWMutex
+	nodePtr  int
+	nodeList []*QueuedNode
+	nodeMap  map[string]*QueuedNode
+}
+
+func NewNodeOrderedSet() *NodeOrderedSet {
+	return &NodeOrderedSet{
+		nodePtr:  0,
+		nodeList: make([]*QueuedNode, 0),
+		nodeMap:  make(map[string]*QueuedNode),
+	}
+}
+
+func (s *NodeOrderedSet) UpdateListFromSet(nSet []models.HostInfo) {
+	// try to add the missing nodes from the DB into the NodeSet
+	newNodes := 0
+	for _, newNode := range nSet {
+		exists := s.IsPeerAlready(newNode.ID)
+		if exists {
+			continue
+		}
+		newNodes++
+		s.AddNode(newNode)
+	}
+	s.OrderSet()
+	s.resetPointer()
+	logrus.WithFields(logrus.Fields{
+		"total-nodes-from-db": len(nSet),
+		"new-nodes-from-db":   newNodes,
+		"total-nodes-in-set":  s.Len(),
+	}).Info("updating node-set from db-non-deprecated-set")
+}
+
+func (s *NodeOrderedSet) IsPeerAlready(nodeID enode.ID) bool {
+	// IsPeerAlready checks whether a peer is already in the Queue.
+	s.m.RLock()
+	defer s.m.RUnlock()
+	_, ok := s.nodeMap[nodeID.String()]
+	return ok
+}
+
+func (s *NodeOrderedSet) AddNode(hInfo models.HostInfo) {
+	logrus.WithField("nodeID", hInfo.ID.String()).Trace("adding node to node-set")
+	qNode := NewQueuedNode(hInfo)
+	s.m.Lock()
+	defer s.m.Unlock()
+	s.nodeMap[hInfo.ID.String()] = qNode
+	s.nodeList = append([]*QueuedNode{qNode}, s.nodeList[:]...) // add it at the beginning of the queue
+}
+
+func (s *NodeOrderedSet) RemoveNode(nodeID enode.ID) {
+	logrus.WithField("nodeID", nodeID.String()).Trace("removing node from node-set")
+	exists := s.IsPeerAlready(nodeID)
+	if !exists {
+		logrus.Warn("trying to remove a peer that was no present in the node list")
+		return
+	}
+	s.m.Lock()
+	defer s.m.Unlock()
+	// from the map
+	delete(s.nodeMap, nodeID.String())
+	// from the list
+	idx := -1
+	for i, val := range s.nodeList {
+		if val.hostInfo.ID == nodeID {
+			idx = i
+			break
+		}
+	}
+	// double-check the index
+	if idx > -1 {
+		s.nodeList = append(s.nodeList[:idx], s.nodeList[idx+1:]...)
+	} else {
+		logrus.Warn("couldn't find the index of the Node to remove from the NodeList")
+	}
+}
+
+func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
+	nodeID enode.ID, connAttempt models.ConnectionAttempt) (deprecable bool) {
+	logEntry := logrus.WithFields(logrus.Fields{
+		"nodeID":  nodeID.String(),
+		"attempt": connAttempt.Status.String(),
+		"error":   connAttempt.Error,
+	})
+	logEntry.Trace("tracking connection-attempt for node")
+	node, exists := s.GetNode(nodeID)
+	if !exists {
+		logEntry.Warn("connection attempt to a node that is untracked")
+	}
+	// check the state of the conn attempt
+	switch connAttempt.Status {
+	case models.SuccessfulConnection:
+		// if possitive, all god
+		node.AddPositiveDial(connAttempt.Timestamp)
+		deprecable = false
+
+	case models.FailedConnection:
+		// if negative, check if it's deprecable
+		deprecable = node.IsDeprecable()
+		if deprecable {
+			s.RemoveNode(nodeID)
+		} else {
+			node.AddNegativeDial(connAttempt.Timestamp, models.ParseStateFromError(connAttempt.Error))
+		}
+
+	default:
+		logrus.WithFields(logrus.Fields{
+			"nodeID":  nodeID.String(),
+			"attempt": connAttempt.Status.String(),
+			"error":   connAttempt.Error,
+		}).Warn("unrecognized connection-attempt status for node")
+		logrus.Panic("we should have never reached here", connAttempt)
+	}
+	return deprecable
+}
+
+// GetNode retrieves the info of the requested node
+func (s *NodeOrderedSet) GetNode(nodeID enode.ID) (*QueuedNode, bool) {
+	s.m.Lock()
+	defer s.m.Unlock()
+	p, ok := s.nodeMap[nodeID.String()]
+	if !ok {
+		return &QueuedNode{}, ok
+	}
+	return p, ok
+}
+
+// IsThereNext returns a boolean indicating whether there is a new item ready to be readed
+func (s *NodeOrderedSet) IsThereNext() bool {
+	// did we hit the max number of peers to dial?
+	if s.nodePtr >= s.Len() {
+		return false
+	}
+	if s.IsEmpty() {
+		return false
+	}
+	return s.nodeList[s.nodePtr].ReadyToDial()
+}
+
+func (s *NodeOrderedSet) NextNode() QueuedNode {
+	s.m.Lock()
+	defer s.m.Unlock()
+	if s.nodePtr > s.Len() || s.nodePtr < 0 {
+		return QueuedNode{}
+	}
+	node := s.nodeList[s.nodePtr]
+	s.nodePtr++ // this will cause s.IsThereNext() to be negative, handled by the upper layer
+	return *node
+}
+
+func (s *NodeOrderedSet) resetPointer() {
+	s.m.Lock()
+	defer s.m.Unlock()
+	s.nodePtr = 0
+}
+
+func (s *NodeOrderedSet) IsEmpty() bool {
+	return s.Len() == 0
+}
+
+func (s *NodeOrderedSet) Len() int {
+	return len(s.nodeList)
+}
+
+// ---  SORTING METHODS FOR PeerQueue ----
+// OrderSet sorts the items based on their next connection time
+func (s *NodeOrderedSet) OrderSet() {
+	s.m.Lock()
+	defer s.m.Unlock()
+	sort.Sort(s)
+}
+
+// Swap is part of sort.Interface.
+func (s *NodeOrderedSet) Swap(i, j int) {
+	s.nodeList[i], s.nodeList[j] = s.nodeList[j], s.nodeList[i]
+}
+
+// Less is part of sort.Interface. We use c.PeerList.NextConnection as the value to sort by.
+func (s *NodeOrderedSet) Less(i, j int) bool {
+	return s.nodeList[i].NextDialTime().Before(s.nodeList[j].NextDialTime())
+}
+
+// --- QueuedNode ---
+
+// Main structure of a node that is queued to be dialed
+type QueuedNode struct {
+	state           models.DialState
+	hostInfo        models.HostInfo
+	nextDialTime    time.Time
+	deprecationTime time.Time
+}
+
+func NewQueuedNode(hInfo models.HostInfo) *QueuedNode {
+	return &QueuedNode{
+		state:           models.ZeroState,
+		hostInfo:        hInfo,
+		nextDialTime:    time.Time{},
+		deprecationTime: time.Time{},
+	}
+}
+
+func (n *QueuedNode) ReadyToDial() bool {
+	return n.nextDialTime.Before(time.Now()) // TODO: should I check if the QueuedNode is empty?
+}
+
+func (n *QueuedNode) updateNextDialTime(t time.Time) {
+	n.nextDialTime = t
+}
+
+func (n *QueuedNode) NextDialTime() time.Time {
+	return n.nextDialTime
+}
+
+func (n *QueuedNode) IsDeprecable() bool {
+	return !n.IsEmpty() && !n.deprecationTime.IsZero() && n.deprecationTime.After(time.Now())
+}
+
+func (n *QueuedNode) IsEmpty() bool {
+	return n.hostInfo == models.HostInfo{}
+}
+
+func (n *QueuedNode) AddPositiveDial(baseT time.Time) {
+	n.state = models.PossitiveState
+	n.nextDialTime = baseT.Add(n.state.DelayFromState())
+	n.deprecationTime = time.Time{}
+}
+
+func (n *QueuedNode) AddNegativeDial(baseT time.Time, state models.DialState) {
+	n.state = state
+	n.nextDialTime = baseT.Add(state.DelayFromState())
+	if n.deprecationTime.IsZero() {
+		n.deprecationTime = baseT.Add(DeprecationMargin)
+	}
+}
