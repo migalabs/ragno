@@ -2,7 +2,6 @@ package crawler
 
 import (
 	"context"
-	"fmt"
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
@@ -91,6 +90,7 @@ func (p *Peering) runOrcherster() {
 	reset := func(m map[enode.ID]struct{}) {
 		m = make(map[enode.ID]struct{})
 	}
+	startT := time.NewTicker(InitDelay)
 	for {
 		// give prior to shut down notifications
 		select {
@@ -108,19 +108,13 @@ func (p *Peering) runOrcherster() {
 				p.dialC <- nextNode.hostInfo
 				dialedCache[nextNode.hostInfo.ID] = struct{}{}
 			} else {
-				// check if it's empty
-				if p.nodeSet.IsEmpty() {
-					startT := time.NewTicker(InitDelay)
-				initDelay:
-					// still check the contexts in case we have to interrupt
-					select {
-					case <-p.ctx.Done():
-						return
-					case <-p.orchersterDoneC:
-						return
-					case <-startT.C:
-						break initDelay
-					}
+				// still check the contexts in case we have to interrupt
+				select {
+				case <-p.ctx.Done():
+					return
+				case <-p.orchersterDoneC:
+					return
+				case <-startT.C:
 				}
 				// update the nodeSet
 				newNodeSet, err := p.db.GetNonDeprecatedNodes()
@@ -128,9 +122,8 @@ func (p *Peering) runOrcherster() {
 					logEntry.Panic("unable to update local set of nodes from DB")
 				}
 				p.nodeSet.UpdateListFromSet(newNodeSet)
-				fmt.Println("---> pinged nodes in orch round", len(dialedCache))
 				reset(dialedCache)
-				fmt.Println("<--- reset the pinged nodes in orch round to", len(dialedCache))
+				startT.Reset(InitDelay)
 			}
 		}
 	}
