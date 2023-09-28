@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"fmt"
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
@@ -20,6 +21,7 @@ const (
 type Peering struct {
 	// control
 	ctx             context.Context
+	appWG           sync.WaitGroup
 	orchersterWG    sync.WaitGroup
 	dialersWG       sync.WaitGroup
 	dialersDoneC    chan struct{}
@@ -47,6 +49,7 @@ func NewPeeringService(ctx context.Context, h *Host, database *db.PostgresDBServ
 }
 
 func (p *Peering) Run() error {
+	p.appWG.Add(1)
 	logrus.Info("running peering service")
 	// run dialers
 	logrus.Infof("spawning %d peering dialers", p.dialers)
@@ -63,16 +66,18 @@ func (p *Peering) Run() error {
 	for i := 0; i < p.dialers; i++ {
 		p.dialersDoneC <- struct{}{}
 	}
-	p.dialersWG.Wait()
-	close(p.dialC)
-	close(p.dialersDoneC)
-	close(p.orchersterDoneC)
+	p.appWG.Wait()
 	return nil
 }
 
 func (p *Peering) Close() {
 	// trigger the cascade closure starting by the orchester
 	p.orchersterDoneC <- struct{}{}
+	p.dialersWG.Wait()
+	close(p.dialC)
+	close(p.dialersDoneC)
+	close(p.orchersterDoneC)
+	p.appWG.Done() // notify that the dialler has finished
 }
 
 func (p *Peering) runOrcherster() {
@@ -82,6 +87,10 @@ func (p *Peering) runOrcherster() {
 		logEntry.Info("closing peering dial orcherster")
 		p.orchersterWG.Done()
 	}()
+	dialedCache := make(map[enode.ID]struct{})
+	reset := func(m map[enode.ID]struct{}) {
+		m = make(map[enode.ID]struct{})
+	}
 	for {
 		// give prior to shut down notifications
 		select {
@@ -92,7 +101,12 @@ func (p *Peering) runOrcherster() {
 		default:
 			if p.nodeSet.IsThereNext() {
 				nextNode := p.nodeSet.NextNode()
+				_, ok := dialedCache[nextNode.hostInfo.ID]
+				if ok {
+					continue
+				}
 				p.dialC <- nextNode.hostInfo
+				dialedCache[nextNode.hostInfo.ID] = struct{}{}
 			} else {
 				// check if it's empty
 				if p.nodeSet.IsEmpty() {
@@ -114,6 +128,9 @@ func (p *Peering) runOrcherster() {
 					logEntry.Panic("unable to update local set of nodes from DB")
 				}
 				p.nodeSet.UpdateListFromSet(newNodeSet)
+				fmt.Println("---> pinged nodes in orch round", len(dialedCache))
+				reset(dialedCache)
+				fmt.Println("<--- reset the pinged nodes in orch round to", len(dialedCache))
 			}
 		}
 	}
@@ -332,6 +349,7 @@ func (s *NodeOrderedSet) NextNode() QueuedNode {
 }
 
 func (s *NodeOrderedSet) resetPointer() {
+	logrus.Trace("resetting pointer at NodeSet")
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.nodePtr = 0
@@ -348,6 +366,7 @@ func (s *NodeOrderedSet) Len() int {
 // ---  SORTING METHODS FOR PeerQueue ----
 // OrderSet sorts the items based on their next connection time
 func (s *NodeOrderedSet) OrderSet() {
+	logrus.Tracef("ordering NodeSet with %d nodes", s.Len())
 	s.m.Lock()
 	defer s.m.Unlock()
 	sort.Sort(s)
@@ -403,12 +422,14 @@ func (n *QueuedNode) IsEmpty() bool {
 }
 
 func (n *QueuedNode) AddPositiveDial(baseT time.Time) {
+	logrus.Trace("adding possitive dial attempt to node", n.hostInfo.ID.String())
 	n.state = models.PossitiveState
 	n.nextDialTime = baseT.Add(n.state.DelayFromState())
 	n.deprecationTime = time.Time{}
 }
 
 func (n *QueuedNode) AddNegativeDial(baseT time.Time, state models.DialState) {
+	logrus.Trace("adding negative dial attempt to node", n.hostInfo.ID.String())
 	n.state = state
 	n.nextDialTime = baseT.Add(state.DelayFromState())
 	if n.deprecationTime.IsZero() {
