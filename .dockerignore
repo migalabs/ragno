@@ -1,0 +1,9 @@
+# To keep the image of the tool clean, we will ignore the example folder
+ragno/
+LICENSE
+README.md
+doc/
+*.csv
+*.txt
+build/
+go-ethereum/*

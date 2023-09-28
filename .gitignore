@@ -7,3 +7,7 @@ ragno/postgres_db
 
 # The IDE folder
 .idea
+
+# shell scripts
+*.sh
+.env

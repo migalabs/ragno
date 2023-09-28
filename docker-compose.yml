@@ -23,3 +23,26 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+
+  el-crawler:
+    image: "ragno:latest"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: |
+      run
+      --log-level=${LOG_LEVEL}
+      --db-endpoint=${DB_URL}
+      --ip=${IP}
+      --port=$PORT
+      --metrics-ip=${METRICS_IP}
+      --metrics-port=${METRICS_PORT}
+      --dialers=${DIALERS}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [ cluster ]
+    ports:
+      - "${IP}:${PORT}:5001"
+      - "${METRICS_IP}:${METRICS_PORT}:5080"
