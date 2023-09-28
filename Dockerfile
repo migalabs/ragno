@@ -1,4 +1,4 @@
-FROM golang:1.21 AS builder
+FROM golang:1.20.8-bullseye AS builder
 
 WORKDIR /
 RUN apt-get install git
@@ -10,7 +10,7 @@ RUN make dependencies
 RUN make build
 
 # FINAL STAGE -> copy the binary and few config files
-FROM debian:buster-slim
+FROM debian:bullseye
 
 RUN mkdir /ragno
 COPY --from=builder /ragno/build/ /crawler
