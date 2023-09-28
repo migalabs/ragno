@@ -91,6 +91,15 @@ func (p *Peering) runOrcherster() {
 		m = make(map[enode.ID]struct{})
 	}
 	startT := time.NewTicker(InitDelay)
+	// update the nodes from the db
+	updateNodes := func() {
+		newNodeSet, err := p.db.GetNonDeprecatedNodes()
+		if err != nil {
+			logEntry.Panic("unable to update local set of nodes from DB")
+		}
+		p.nodeSet.UpdateListFromSet(newNodeSet)
+	}
+	updateNodes()
 	for {
 		// give prior to shut down notifications
 		select {
@@ -117,11 +126,7 @@ func (p *Peering) runOrcherster() {
 				case <-startT.C:
 				}
 				// update the nodeSet
-				newNodeSet, err := p.db.GetNonDeprecatedNodes()
-				if err != nil {
-					logEntry.Panic("unable to update local set of nodes from DB")
-				}
-				p.nodeSet.UpdateListFromSet(newNodeSet)
+				updateNodes()
 				reset(dialedCache)
 				startT.Reset(InitDelay)
 			}
