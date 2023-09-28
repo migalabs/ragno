@@ -7,15 +7,28 @@ import (
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/pkg/errors"
 )
 
 type NodeInfoOption func(*NodeInfo) error
 
 type ConnectionStatus int8
 
+func (s ConnectionStatus) String() (str string) {
+	switch s {
+	case NotAttempted:
+		str = "not-attempted"
+	case FailedConnection:
+		str = "failed-attempt"
+	case SuccessfulConnection:
+		str = "sucessful-attempt"
+	default:
+		str = "not-attempted"
+	}
+	return str
+}
+
 const (
-	NotConnected ConnectionStatus = iota
+	NotAttempted ConnectionStatus = iota
 	FailedConnection
 	SuccessfulConnection
 )
@@ -70,6 +83,7 @@ func (n *NodeInfo) UpdateTimestamp() {
 
 // required info to connect the remote node
 type HostInfo struct {
+	ID     enode.ID
 	Pubkey *ecdsa.PublicKey
 	IP     string
 	TCP    int
@@ -88,7 +102,7 @@ func NodeDetailsFromDevp2pHandshake(hdsk ethtest.HandshakeDetails) HandshakeDeta
 		ClientName:   hdsk.ClientName,
 		SoftwareInfo: hdsk.SoftwareInfo,
 		Capabilities: hdsk.Capabilities,
-		Error:        errors.New(string(hdsk.Error)),
+		Error:        hdsk.Error,
 	}
 }
 
