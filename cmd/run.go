@@ -64,12 +64,6 @@ var RunCommand = &cli.Command{
 			Aliases: []string{"cs"},
 			EnvVars: []string{"RAGNO_SAVER_NUM"},
 		},
-		&cli.IntFlag{
-			Name:    "retries",
-			Usage:   "Number of times that the crawler will try to connect to a node before giving up",
-			Aliases: []string{"ra"},
-			EnvVars: []string{"RAGNO_RETRY_AMOUNT"},
-		},
 	},
 }
 
