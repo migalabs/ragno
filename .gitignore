@@ -11,3 +11,9 @@ ragno/postgres_db
 # shell scripts
 *.sh
 .env
+
+# Python details
+scripts/venv
+scripts/.env
+scripts/csvs/*
+scripts/imgs/*
