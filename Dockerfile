@@ -13,10 +13,12 @@ RUN make build
 FROM debian:bullseye
 
 RUN mkdir /ragno
-COPY --from=builder /ragno/build/ /crawler
+WORKDIR /ragno
+COPY --from=builder /ragno/build/ ./
+COPY --from=builder /ragno/db/migrations ./db/migrations
 
 # Crawler exposed Port
 EXPOSE 5001
 EXPOSE 5080
 
-ENTRYPOINT ["/crawler/ragno"]
+ENTRYPOINT ["./ragno"]
