@@ -34,11 +34,17 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 		tcp,
 		first_connected,
 		last_connected,
+		raw_user_agent,
 		client_name,
+		client_raw_version,
+		client_clean_version,
+		client_os,
+		client_arch,
+		client_language,
 		capabilities,
 		software_info,        
 		deprecated
-	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
@@ -46,12 +52,18 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 			WHEN excluded.first_connected IS NOT NULL THEN excluded.first_connected 
 			ELSE $5 END,
 		last_connected = $6,
-		client_name = $7,
-		capabilities = $8,
-		software_info = $9,
-		deprecated = $10;		
+		raw_user_agent = $7,
+		client_name = $8,
+		client_raw_version = $9,
+		client_clean_version = $10,
+		client_os = $11,
+		client_arch = $12,
+		client_language = $13,
+		capabilities = $14,
+		software_info = $15,
+		deprecated = $16;
 	`
-
+	clientDetails := models.ParseUserAgent(nInfo.ClientName)
 	capabilities := make([]string, len(nInfo.Capabilities))
 	for idx, cap := range nInfo.Capabilities {
 		capabilities[idx] = cap.String()
@@ -65,7 +77,13 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 	args = append(args, nInfo.TCP)
 	args = append(args, nInfo.Timestamp)
 	args = append(args, nInfo.Timestamp)
-	args = append(args, nInfo.ClientName)
+	args = append(args, clientDetails.RawClientName)
+	args = append(args, clientDetails.ClientName)
+	args = append(args, clientDetails.ClientVersion)
+	args = append(args, clientDetails.ClientCleanVersion)
+	args = append(args, clientDetails.ClientOS)
+	args = append(args, clientDetails.ClientArch)
+	args = append(args, clientDetails.ClientLanguage)
 	args = append(args, capabilities)
 	args = append(args, nInfo.SoftwareInfo)
 	args = append(args, false) // we identified the peer (un-deprecate them)
