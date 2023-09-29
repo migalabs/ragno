@@ -158,7 +158,7 @@ func (p *Peering) Connect(hInfo models.HostInfo) {
 	// try to connect to the peer
 	connAttempt, handsDetails := p.connect(hInfo)
 	// handle the result (check if it's deprecable) and update local perception
-	connAttempt.Deprecable = p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, connAttempt)
+	p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, &connAttempt)
 	// persist the node with all the necessary info
 	p.db.PersistNodeInfo(connAttempt, handsDetails)
 }
@@ -274,7 +274,7 @@ func (s *NodeOrderedSet) RemoveNode(nodeID enode.ID) {
 }
 
 func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
-	nodeID enode.ID, connAttempt models.ConnectionAttempt) (deprecable bool) {
+	nodeID enode.ID, connAttempt *models.ConnectionAttempt) {
 	logEntry := logrus.WithFields(logrus.Fields{
 		"nodeID":  nodeID.String(),
 		"attempt": connAttempt.Status.String(),
@@ -290,12 +290,12 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 	case models.SuccessfulConnection:
 		// if possitive, all god
 		node.AddPositiveDial(connAttempt.Timestamp)
-		deprecable = false
+		connAttempt.Deprecable = false
 
 	case models.FailedConnection:
 		// if negative, check if it's deprecable
-		deprecable = node.IsDeprecable()
-		if deprecable {
+		connAttempt.Deprecable = node.IsDeprecable()
+		if connAttempt.Deprecable {
 			s.RemoveNode(nodeID)
 		} else {
 			node.AddNegativeDial(connAttempt.Timestamp, models.ParseStateFromError(connAttempt.Error))
@@ -309,7 +309,7 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 		}).Warn("unrecognized connection-attempt status for node")
 		logrus.Panic("we should have never reached here", connAttempt)
 	}
-	return deprecable
+	return
 }
 
 // GetNode retrieves the info of the requested node

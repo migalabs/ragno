@@ -16,9 +16,9 @@ const (
 
 	// Delays based on the the Error State
 	ZeroDelay                = 0 * time.Minute
-	NegativeWithHopeDelay    = 5 * time.Minute
+	NegativeWithHopeDelay    = 3 * time.Minute
 	NegativeWithoutHopeDalay = 20 * time.Minute
-	PossitiveDelay           = 5 * time.Minute
+	PossitiveDelay           = 10 * time.Minute
 )
 
 func (s DialState) StateToString() (str string) {
