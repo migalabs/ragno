@@ -130,6 +130,7 @@ func (n ENR) CSVheaders() []string {
 
 func (n *ENR) GetHostInfo() *HostInfo {
 	return &HostInfo{
+		ID:     n.ID,
 		Pubkey: n.Node.Pubkey(),
 		IP:     n.IP,
 		TCP:    n.TCP,

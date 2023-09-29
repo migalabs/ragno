@@ -49,16 +49,11 @@ func (d *PostgresDBService) DropNodeInfoTable() error {
 
 func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAttempt) (query string, args []interface{}) {
 	query = `
-	INSERT INTO node_info(
-		node_id,
-		last_tried,
-		error,
-		deprecated
-	) VALUES($1,$2,$3,$4)
-	ON CONFLICT (node_id) DO UPDATE SET
-		last_tried = $2,
-		error = $3,
-		deprecated = $4;
+	UPDATE node_info SET 
+		last_tried=$2,
+		error=$3,
+		deprecated=$4
+	WHERE node_id=$1;
 	`
 	args = append(args, attempt.ID.String())
 	args = append(args, attempt.Timestamp)
@@ -68,7 +63,7 @@ func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAtt
 	return query, args
 }
 
-func (d *PostgresDBService) insertNodeInfo(nInfo models.NodeInfo) (query string, args []interface{}) {
+func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string, args []interface{}) {
 	query = `
 	INSERT INTO node_info(
 		node_id,
@@ -80,17 +75,17 @@ func (d *PostgresDBService) insertNodeInfo(nInfo models.NodeInfo) (query string,
 		client_name,
 		capabilities,
 		software_info
-	) VALUES($1,$2,$3,$4,$5,$6,%7,$8,$9)
+	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
 	ON CONFLICT (node_id) DO UPDATE SET
-		ip = $2,
-		tcp = $3,
+		ip = $3,
+		tcp = $4,
 		first_connected = CASE 
 			WHEN excluded.first_connected IS NOT NULL THEN excluded.first_connected 
-			ELSE $4 END,
-		last_connected = $5,
-		client_name = $6,
-		capabilities = $7,
-		software_info = $8;		
+			ELSE $5 END,
+		last_connected = $6,
+		client_name = $7,
+		capabilities = $8,
+		software_info = $9;		
 	`
 
 	capabilities := make([]string, len(nInfo.Capabilities))
@@ -141,6 +136,42 @@ func (d *PostgresDBService) upserHostInfoFromENR(hInfo *models.HostInfo) (query 
 	return query, args
 }
 
+func (d *PostgresDBService) GetNonDeprecatedNodes() ([]models.HostInfo, error) {
+	query := `
+	SELECT
+		node_id,
+		pubkey,
+		ip,
+		tcp
+	FROM node_info
+	WHERE deprecated='false';
+	`
+	nodes := make([]models.HostInfo, 0)
+	rows, err := d.psqlPool.Query(d.ctx, query)
+	if err != nil {
+		return nodes, errors.Wrap(err, "unable to retrieve the non-deprecated nodes")
+	}
+	for rows.Next() {
+		hInfo := models.HostInfo{}
+		var nodeIDstr string
+		var pubkeyStr string
+		err := rows.Scan(&nodeIDstr, &pubkeyStr, &hInfo.IP, &hInfo.TCP)
+		if err != nil {
+			return nodes, errors.Wrap(err, "unable to parse the non-deprecated nodes from db")
+		}
+		hInfo.ID, err = enode.ParseID(nodeIDstr)
+		if err != nil {
+			return nodes, errors.Wrap(err, "unable to parse NodeID of a non-deprecated node")
+		}
+		hInfo.Pubkey, err = models.StringToPubkey(pubkeyStr)
+		if err != nil {
+			return nodes, errors.Wrap(err, "unable to parse Pubkey of a non-deprecated node")
+		}
+		nodes = append(nodes, hInfo)
+	}
+	return nodes, nil
+}
+
 // PersistNodeInfo is the main method to persist the node info into the DB
 func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nInfo models.NodeInfo) {
 	// persist the attempt
@@ -151,7 +182,7 @@ func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nI
 	// check if the connection was successfull to record the connection
 	if attempt.Status == models.SuccessfulConnection {
 		p := NewPersistable()
-		p.query, p.values = d.insertNodeInfo(nInfo)
+		p.query, p.values = d.upsertNodeInfo(nInfo)
 		d.writeChan <- p
 	}
 }

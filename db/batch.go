@@ -63,7 +63,7 @@ persistRetryLoop:
 		duration := time.Since(t)
 		switch err {
 		case nil:
-			logEntry.Tracef("persisted %d queries in %s seconds", q.Len(), duration)
+			logEntry.Tracef("persisted %d queries in %s", q.Len(), duration)
 			break persistRetryLoop
 		default:
 			logEntry.Tracef("attempt numb %d failed %s", i+1, err.Error())
@@ -93,12 +93,8 @@ func (q *QueryBatch) persistBatch() error {
 	var rows pgx.Rows
 	nextQuery := true
 	cnt := 0
-	erroredQ := 0
 	for nextQuery && qerr == nil {
 		rows, qerr = batchResults.Query()
-		if qerr != nil {
-			erroredQ = cnt
-		}
 		nextQuery = rows.Next() // it closes all the rows if all the rows are readed
 		cnt++
 	}
@@ -106,17 +102,17 @@ func (q *QueryBatch) persistBatch() error {
 	if qerr != nil {
 		log.WithFields(log.Fields{
 			"error":  qerr.Error(),
-			"query":  q.persistables[erroredQ].query,
-			"values": q.persistables[erroredQ].values,
-		}).Errorf("unable to persist query [%d]", erroredQ)
+			"query":  q.persistables[cnt-1].query,
+			"values": q.persistables[cnt-1].values,
+		}).Errorf("unable to persist query [%d]", cnt-1)
 		return errors.Wrap(qerr, "error persisting batch")
 	}
 	if ctx.Err() == context.DeadlineExceeded {
 		log.WithFields(log.Fields{
 			"error":  ctx.Err().Error(),
-			"query":  q.persistables[erroredQ].query,
-			"values": q.persistables[erroredQ].values,
-		}).Errorf("query timed out [%d]", erroredQ)
+			"query":  q.persistables[cnt-1].query,
+			"values": q.persistables[cnt-1].values,
+		}).Errorf("timed-out [query %d]", cnt-1)
 		return errors.Wrap(ctx.Err(), "error persisting batch")
 	}
 	return nil

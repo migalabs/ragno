@@ -7,20 +7,14 @@ import (
 
 var (
 	// crawler host related metrics
-	DefaultLogLevel          = "info"
-	DefaultDBEndpoint        = "postgresql://user:password@localhost:5432/ragnodb"
-	DefaultDiscPort          = 9045
-	DefaultHostIP            = "0.0.0.0"
-	DefaultHostPort          = 9050
-	DefaultMetricsIP         = "localhost"
-	DefaultMetricsPort       = 9070
-	DefaultConcurrentDialers = 150
-	DefaultConcurrentSavers  = 2
-	DefaultRetryAmount       = 3
-	DefaultRetryDelay        = 8
-
-	// Not using yaml files so far
-	DefaultConfigFile = "config/example.yaml"
+	DefaultLogLevel             = "info"
+	DefaultDBEndpoint           = "postgresql://user:password@localhost:5432/ragnodb"
+	DefaultHostIP               = "0.0.0.0"
+	DefaultHostPort             = 9050
+	DefaultMetricsIP            = "localhost"
+	DefaultMetricsPort          = 9070
+	DefaultConcurrentDialers    = 150
+	DefaultConcurrentPersisters = 2
 )
 
 type CrawlerRunConf struct {
@@ -32,7 +26,6 @@ type CrawlerRunConf struct {
 	MetricsPort int    `yaml:"metics-port"`
 	Dialers     int    `yaml:"dialers"`
 	Persisters  int    `yaml:"persisters"`
-	Retries     int    `yaml:"retries"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
@@ -44,8 +37,7 @@ func NewDefaultRun() *CrawlerRunConf {
 		MetricsIP:   DefaultMetricsIP,
 		MetricsPort: DefaultMetricsPort,
 		Dialers:     DefaultConcurrentDialers,
-		Persisters:  DefaultConcurrentSavers,
-		Retries:     DefaultRetryAmount,
+		Persisters:  DefaultConcurrentPersisters,
 	}
 }
 
@@ -81,9 +73,5 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	if ctx.IsSet("persisters") {
 		c.Persisters = ctx.Int("persisters")
 	}
-	if ctx.IsSet("retries") {
-		c.Retries = ctx.Int("retries")
-	}
-
 	return nil
 }

@@ -2,12 +2,9 @@ package crawler
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/cortze/ragno/db"
-	"github.com/cortze/ragno/models"
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
@@ -23,14 +20,12 @@ type Crawler struct {
 	doneC chan struct{}
 	// host
 	host *Host
+	// peering
+	peering *Peering
 	// database
 	db *db.PostgresDBService
 	// discovery
 	peerDisc *peerDisc.PeerDiscovery
-	// amount of concurrent dialers
-	concurrentDialers int
-	// amount of times to retry a connection
-	retries int
 }
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
@@ -65,13 +60,12 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		return nil, err
 	}
 	crwl := &Crawler{
-		ctx:               ctx,
-		doneC:             make(chan struct{}, 1),
-		host:              host,
-		db:                db,
-		concurrentDialers: conf.Dialers,
-		retries:           conf.Retries,
-		peerDisc:          discvService,
+		ctx:      ctx,
+		doneC:    make(chan struct{}, 1),
+		host:     host,
+		peering:  NewPeeringService(ctx, host, db, conf.Dialers),
+		db:       db,
+		peerDisc: discvService,
 	}
 	return crwl, nil
 }
@@ -83,41 +77,17 @@ func (c *Crawler) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "starting peer-discovery")
 	}
-
-	// start workers to connect to peers
-	var wgDialers sync.WaitGroup
-	logrus.Info("Starting ", c.concurrentDialers, " workers to connect to peers")
-	for i := 0; i < c.concurrentDialers; i++ {
-		wgDialers.Add(1)
-		go func(i int) {
-			defer wgDialers.Done()
-			for {
-				select {
-				case <-c.ctx.Done():
-					return
-
-				case <-c.doneC:
-					logrus.Debug("shutdown detected at worker, closing it")
-					return
-				}
-			}
-		}(i)
-	}
-	logrus.Info("Waiting for dialers to finish")
-	wgDialers.Wait()
-	close(c.doneC)
-	return nil
+	// TODO: run metrics
+	return c.peering.Run()
 }
 
 func (c *Crawler) Close() {
 	// finish discovery
 	logrus.Info("crawler: closing peer-discovery")
 	c.peerDisc.Close()
-	// stop workers
-	logrus.Info("crawler: closing dialers")
-	for i := 0; i < c.concurrentDialers; i++ {
-		c.doneC <- struct{}{}
-	}
+	// stop peering
+	logrus.Info("crawler: closing peering")
+	c.peering.Close()
 	// close host
 	logrus.Info("crawler: closing host")
 	c.host.Close()
@@ -125,56 +95,4 @@ func (c *Crawler) Close() {
 	logrus.Info("crawler: closing database")
 	c.db.Finish()
 	logrus.Info("Ragno closing routine done! See you!")
-}
-
-func (c *Crawler) Connect(hInfo *models.HostInfo) {
-	// try to connect to the peer
-	for i := 0; i < c.retries; i++ {
-		connAttempt, handsDetails := c.connect(hInfo)
-		// track the connection attempt
-		c.db.PersistNodeInfo(connAttempt, handsDetails)
-		// check if we need to retry
-		switch connAttempt.Status {
-		case models.FailedConnection:
-			// wait for the retry delay
-			ticker := time.NewTicker(retryDelay)
-			select {
-			case <-ticker.C:
-				continue
-			case <-c.ctx.Done():
-				break
-			}
-		case models.SuccessfulConnection:
-			// no need to retry again
-			break
-		}
-	}
-}
-
-func (c *Crawler) connect(hInfo *models.HostInfo) (models.ConnectionAttempt, models.NodeInfo) {
-	nodeID := enode.PubkeyToIDV4(hInfo.Pubkey)
-
-	connAttempt := models.NewConnectionAttempt(nodeID)
-	nInfo, _ := models.NewNodeInfo(nodeID, models.WithHostInfo(*hInfo))
-
-	handshakeDetails, err := c.host.Connect(hInfo)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"node-id": nodeID.String(),
-			"error":   err.Error(),
-		}).Trace("failed connection")
-		connAttempt.Status = models.FailedConnection
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"node-id":      nodeID.String(),
-			"client":       handshakeDetails.ClientName,
-			"capabilities": handshakeDetails.Capabilities,
-		}).Trace("successfull connection")
-		connAttempt.Status = models.SuccessfulConnection
-		models.WithHandShakeDetails(handshakeDetails)
-	}
-	connAttempt.Error = err
-	connAttempt.Deprecable = false // TODO: upgrade this
-
-	return connAttempt, *nInfo
 }
