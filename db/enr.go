@@ -7,43 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 )
-
-func (d *PostgresDBService) CreateENRtable() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS enrs (
-		id INT GENERATED ALWAYS AS IDENTITY,
-		node_id TEXT PRIMARY KEY,
-		origin TEXT NOT NULL,
-		first_seen TIMESTAMP NOT NULL,
-		last_seen TIMESTAMP NOT NULL,
-		ip TEXT NOT NULL,
-		tcp INT NOT NULL,
-		udp INT NOT NULL,
-		seq BIGINT NOT NULL,
-		pubkey TEXT NOT NULL,
-		record TEXT NOT NULL,
-		score INT
-	);`
-	_, err := d.psqlPool.Exec(d.ctx, query)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize enr table")
-	}
-	return nil
-}
-
-func (d *PostgresDBService) DropENRtable() error {
-	query := `
-	DROP TABLE IF EXISTS enrs;
-	`
-	_, err := d.psqlPool.Exec(
-		d.ctx, query)
-	if err != nil {
-		return errors.Wrap(err, "unable to drop enr table")
-	}
-	return nil
-}
 
 func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []interface{}) {
 	log.Trace("Upserting new enr to Eth Nodes")

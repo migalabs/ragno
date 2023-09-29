@@ -9,44 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Create the info table
-func (d *PostgresDBService) CreateNodeInfoTable() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS node_info (
-		id INT GENERATED ALWAYS AS IDENTITY,
-		node_id TEXT PRIMARY KEY,
-		pubkey TEXT NOT NULL,
-		ip TEXT NOT NULL,
-		tcp INT NOT NULL,
-		first_connected TIMESTAMP,
-		last_connected TIMESTAMP,
-		last_tried TIMESTAMP,
-		client_name TEXT,
-		capabilities TEXT[],
-		software_info INT,
-		error TEXT,
-		deprecated BOOL
-	);`
-	_, err := d.psqlPool.Exec(d.ctx, query)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize node_info table")
-	}
-	return nil
-}
-
-// Drop the info table
-func (d *PostgresDBService) DropNodeInfoTable() error {
-	query := `
-	DROP TABLE IF EXISTS node_info;
-	`
-	_, err := d.psqlPool.Exec(
-		d.ctx, query)
-	if err != nil {
-		return errors.Wrap(err, "unable to drop node_info table")
-	}
-	return nil
-}
-
 func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAttempt) (query string, args []interface{}) {
 	query = `
 	UPDATE node_info SET 
@@ -74,8 +36,9 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 		last_connected,
 		client_name,
 		capabilities,
-		software_info
-	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		software_info,        
+		deprecated
+	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
@@ -85,7 +48,8 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 		last_connected = $6,
 		client_name = $7,
 		capabilities = $8,
-		software_info = $9;		
+		software_info = $9,
+		deprecated = $10;		
 	`
 
 	capabilities := make([]string, len(nInfo.Capabilities))
@@ -104,6 +68,7 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 	args = append(args, nInfo.ClientName)
 	args = append(args, capabilities)
 	args = append(args, nInfo.SoftwareInfo)
+	args = append(args, false) // we identified the peer (un-deprecate them)
 
 	return query, args
 }
