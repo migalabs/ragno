@@ -5,7 +5,7 @@ networks:
 
 services:
   db:
-    image: postgres:latest
+    image: postgres:16.0-alpine
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -24,7 +24,7 @@ services:
       timeout: 3s
       retries: 3
 
-  el-crawler:
+  ragno:
     image: "ragno:latest"
     build:
       context: .
