@@ -102,7 +102,7 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 	args = append(args, nInfo.ProtocolVersion)
 	args = append(args, hex.EncodeToString(nInfo.HeadHash.Bytes()))
 	args = append(args, nInfo.NetworkID)
-	args = append(args, nInfo.TotalDifficulty)
+	args = append(args, nInfo.TotalDifficulty.Uint64())
 	// control
 	args = append(args, !sameNetwork) // we identified the peer (un-deprecate it if the are in the same network)
 
@@ -137,7 +137,7 @@ func (d *PostgresDBService) upserHostInfoFromENR(hInfo *models.HostInfo) (query 
 	return query, args
 }
 
-func (d *PostgresDBService) GetNonDeprecatedNodes() ([]models.HostInfo, error) {
+func (d *PostgresDBService) GetNonDeprecatedNodes(networkID uint64) ([]models.HostInfo, error) {
 	query := `
 	SELECT
 		node_id,
@@ -145,10 +145,10 @@ func (d *PostgresDBService) GetNonDeprecatedNodes() ([]models.HostInfo, error) {
 		ip,
 		tcp
 	FROM node_info
-	WHERE deprecated='false';
+	WHERE deprecated='false' and (network_id=$1 or network_id IS NULL);
 	`
 	nodes := make([]models.HostInfo, 0)
-	rows, err := d.psqlPool.Query(d.ctx, query)
+	rows, err := d.psqlPool.Query(d.ctx, query, networkID)
 	if err != nil {
 		return nodes, errors.Wrap(err, "unable to retrieve the non-deprecated nodes")
 	}

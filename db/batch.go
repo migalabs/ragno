@@ -100,19 +100,18 @@ func (q *QueryBatch) persistBatch() error {
 	}
 	// check if there was any error
 	if qerr != nil {
-		log.WithFields(log.Fields{
-			"error":  qerr.Error(),
-			"query":  q.persistables[cnt-1].query,
-			"values": q.persistables[cnt-1].values,
-		}).Errorf("unable to persist query [%d]", cnt-1)
 		return errors.Wrap(qerr, "error persisting batch")
 	}
+	/*
+		// debug the queries (redice batch size and enable this)
+		for idx, item := range q.persistables {
+			fmt.Println("-> q:  ", idx)
+			fmt.Println("query: ", item.query)
+			fmt.Println("values:", item.values)
+		}
+		log.Panicf("panic on query")
+	*/
 	if ctx.Err() == context.DeadlineExceeded {
-		log.WithFields(log.Fields{
-			"error":  ctx.Err().Error(),
-			"query":  q.persistables[cnt-1].query,
-			"values": q.persistables[cnt-1].values,
-		}).Errorf("timed-out [query %d]", cnt-1)
 		return errors.Wrap(ctx.Err(), "error persisting batch")
 	}
 	return nil
