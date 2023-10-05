@@ -84,7 +84,7 @@ func connect(ctx *cli.Context) error {
 		return errors.Wrap(err, "unable to parse ENR")
 	}
 
-	details, err := host.Connect(enr.GetHostInfo())
+	details, chain, err := host.Connect(enr.GetHostInfo())
 	if err != nil {
 		logrus.Info("Couldn't connect to Node: ", enr.ID, ": ", err)
 		return nil
@@ -97,8 +97,15 @@ func connect(ctx *cli.Context) error {
 	logrus.Info("Node's ID: ", enr.ID.String())
 	logrus.Info("Node's Pubkey: ", enr.Pubkey)
 	logrus.Info("Node's Seq: ", enr.Seq)
+	// node info
 	logrus.Info("Node's Client: ", details.ClientName)
 	logrus.Info("Node's Capabilities: ", details.Capabilities)
 	logrus.Info("Node's SoftwareInfo: ", details.SoftwareInfo)
+	// chain details
+	logrus.Info("Node's NetworkID: ", chain.NetworkID)
+	logrus.Info("Node's ForkID: ", chain.ForkID)
+	logrus.Info("Node's ProtocolVersion: ", chain.ProtocolVersion)
+	logrus.Info("Node's HeadHash: ", chain.HeadHash)
+	logrus.Info("Node's TotalDiff: ", chain.TotalDifficulty)
 	return nil
 }
