@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/forkid"
+	"math/big"
 	"net"
 	"time"
 
-	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -19,6 +21,7 @@ import (
 )
 
 const (
+	Timeout                      = 15 * time.Second
 	MaxRetries     int           = 3
 	GraceTime      time.Duration = 10 * time.Second
 	DefaultTimeout time.Duration = 15 * time.Second
@@ -35,12 +38,7 @@ type Host struct {
 	caps                []p2p.Cap
 	highestProtoVersion uint
 
-	chainStatus ChainStatus
-	// related services
-	db *db.PostgresDBService
-
-	// map of connections per remote peers
-	//peers map[node.ID]ethnode.Client
+	localChainStatus ethtest.Status
 }
 
 type HostOption func(*Host) error
@@ -53,6 +51,7 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 	}
 	logrus.Debugf("pub addr of the host: %s", addr.String())
 	newPrivk, _ := crypto.GenerateKey()
+	genesis := core.DefaultGenesisBlock()
 	h := &Host{
 		ctx: ctx,
 		dialer: net.Dialer{
@@ -66,6 +65,15 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 			{Name: "eth", Version: 68},
 		},
 		highestProtoVersion: 68,
+		// fill the local status with the mainnet-genesis
+		localChainStatus: ethtest.Status{
+			ProtocolVersion: uint32(0),
+			NetworkID:       uint64(1),
+			TD:              big.NewInt(0),
+			Head:            genesis.ToBlock().Hash(),
+			Genesis:         genesis.ToBlock().Hash(),
+			ForkID:          forkid.NewID(genesis.Config, genesis.ToBlock().Hash(), 0, genesis.Timestamp),
+		},
 	}
 	for _, opt := range opts {
 		err := opt(h)
@@ -80,14 +88,6 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 func WithPrivKey(privk *ecdsa.PrivateKey) HostOption {
 	return func(h *Host) error {
 		h.privk = privk
-		return nil
-	}
-}
-
-// TODO: maybe not the best thing
-func WithDatabase(db *db.PostgresDBService) HostOption {
-	return func(h *Host) error {
-		h.db = db
 		return nil
 	}
 }
@@ -111,33 +111,42 @@ func WithHighestProtoVersion(version int) HostOption {
 // --- host related methods ---
 
 // Connect attempts to connect a given node getting a list of details from each handshake
-func (h *Host) Connect(remoteN *models.HostInfo) (models.HandshakeDetails, error) {
-	conn, details, err := h.dial(remoteN)
+func (h *Host) Connect(remoteNode *models.HostInfo) (ethtest.HandshakeDetails, models.ChainDetails, error) {
+	// make handshake
+	conn, hadshakeDetails, err := h.dial(remoteNode.IP, remoteNode.TCP, remoteNode.Pubkey)
 	if err != nil {
-		return details, err
+		return hadshakeDetails, models.ChainDetails{}, err
 	}
 	defer conn.Close()
-	return details, nil
+
+	// If node provides no eth version, we can skip it.
+	if hadshakeDetails.NegotiatedProtoVersion == 0 {
+		return hadshakeDetails, models.ChainDetails{}, nil
+	}
+	chainDetails, err := h.getChainStatus(conn)
+	if err != nil {
+		return hadshakeDetails, chainDetails, err
+	}
+	return hadshakeDetails, chainDetails, nil
 }
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
-func (h *Host) dial(n *models.HostInfo) (ethtest.Conn, models.HandshakeDetails, error) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", n.IP, n.TCP))
+func (h *Host) dial(ip string, port int, pubkey *ecdsa.PublicKey) (*ethtest.Conn, ethtest.HandshakeDetails, error) {
+	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
-		return ethtest.Conn{}, models.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
+		return &ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
 	}
-	conn := ethtest.Conn{
-		Conn: rlpx.NewConn(netConn, n.Pubkey),
+	conn := &ethtest.Conn{
+		Conn: rlpx.NewConn(netConn, pubkey),
 	}
 	_, err = conn.Handshake(h.privk)
 	if err != nil {
-		return ethtest.Conn{}, models.HandshakeDetails{Error: err}, err
+		return &ethtest.Conn{}, ethtest.HandshakeDetails{Error: err}, err
 	}
-	ds, err := h.makeHelloHandshake(&conn)
+	details, err := h.makeHelloHandshake(conn)
 	if err != nil {
-		return conn, models.HandshakeDetails{Error: err}, errors.Wrap(err, "unable to initiate Handshake with node")
+		return conn, ethtest.HandshakeDetails{Error: err}, errors.Wrap(err, "unable to initiate Handshake with node")
 	}
-	details := models.NodeDetailsFromDevp2pHandshake(ds)
 	return conn, details, err
 }
 
@@ -145,6 +154,54 @@ func (h *Host) dial(n *models.HostInfo) (ethtest.Conn, models.HandshakeDetails, 
 // the client name and capabilities
 func (h *Host) makeHelloHandshake(conn *ethtest.Conn) (ethtest.HandshakeDetails, error) {
 	return conn.DetailedHandshake(h.privk, h.caps, h.highestProtoVersion)
+}
+
+func (h *Host) getChainStatus(conn *ethtest.Conn) (models.ChainDetails, error) {
+	// get chain status
+	err := conn.SetDeadline(time.Now().Add(Timeout))
+	if err != nil {
+		return models.ChainDetails{}, err
+	}
+
+	// Regardless of whether we wrote a status message or not, the remote side
+	// might still send us one.
+	err = conn.Write(h.localChainStatus)
+	if err != nil {
+		return models.ChainDetails{}, err
+	}
+	remoteStatus := models.ChainDetails{}
+	err = h.readStatusBack(conn, &remoteStatus)
+	if err != nil {
+		return models.ChainDetails{}, err
+	}
+
+	// Disconnect from client
+	_ = conn.Write(ethtest.Disconnect{Reason: p2p.DiscQuitting})
+	return remoteStatus, nil
+}
+
+func (h *Host) readStatusBack(conn *ethtest.Conn, status *models.ChainDetails) error {
+	switch msg := conn.Read().(type) {
+	case *ethtest.Status:
+		status.ForkID = msg.ForkID
+		status.HeadHash = msg.Head
+		status.NetworkID = msg.NetworkID
+		status.ProtocolVersion = msg.ProtocolVersion
+		status.TotalDifficulty = msg.TD
+		// check if we belong to the same network and update it if we see that they have a bigger head
+		if msg.NetworkID == h.localChainStatus.NetworkID && msg.TD.Cmp(h.localChainStatus.TD) > 0 {
+			// update local TD if received TD is higher
+			h.localChainStatus = *msg
+		}
+
+	case *ethtest.Disconnect:
+		return fmt.Errorf("bad status handshake disconnect: %v", msg.Reason.Error())
+	case *ethtest.Error:
+		return fmt.Errorf("bad status handshake error: %v", msg.Error())
+	default:
+		return fmt.Errorf("bad status handshake code: %v", msg.Code())
+	}
+	return nil
 }
 
 func (h *Host) Close() {
@@ -159,7 +216,4 @@ func GetPublicIP() (net.IP, error) {
 	defer conn.Close()
 	lclAddr := conn.LocalAddr().(*net.UDPAddr)
 	return lclAddr.IP, nil
-}
-
-type ChainStatus struct {
 }

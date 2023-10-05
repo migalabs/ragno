@@ -2,10 +2,12 @@ package models
 
 import (
 	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/forkid"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
-	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
@@ -37,8 +39,8 @@ type NodeInfo struct {
 	Timestamp time.Time
 	ID        enode.ID
 	HostInfo
-	HandshakeDetails
-	// Metadata Exchange
+	ethtest.HandshakeDetails
+	ChainDetails
 }
 
 func NewNodeInfo(id enode.ID, opts ...NodeInfoOption) (*NodeInfo, error) {
@@ -46,7 +48,8 @@ func NewNodeInfo(id enode.ID, opts ...NodeInfoOption) (*NodeInfo, error) {
 		Timestamp:        time.Now(),
 		ID:               id,
 		HostInfo:         HostInfo{},
-		HandshakeDetails: HandshakeDetails{},
+		HandshakeDetails: ethtest.HandshakeDetails{},
+		ChainDetails:     ChainDetails{},
 	}
 	for _, opt := range opts {
 		err := opt(nInfo)
@@ -66,9 +69,17 @@ func WithHostInfo(hInfo HostInfo) NodeInfoOption {
 }
 
 // WithHandshakeDetails adds the give handshake info to the NodeInfo struct
-func WithHandShakeDetails(d HandshakeDetails) NodeInfoOption {
+func WithHandShakeDetails(d ethtest.HandshakeDetails) NodeInfoOption {
 	return func(n *NodeInfo) error {
 		n.HandshakeDetails = d
+		return nil
+	}
+}
+
+// WithHostInfo adds the give host info to the NodeInfo struct
+func WithChainDetails(cd ChainDetails) NodeInfoOption {
+	return func(n *NodeInfo) error {
+		n.ChainDetails = cd
 		return nil
 	}
 }
@@ -77,33 +88,12 @@ func (n *NodeInfo) UpdateTimestamp() {
 	n.Timestamp = time.Now()
 }
 
-// TODO
-// - NodeInfoToCSVrow
-// - ReadNodeInfoFromSQLquery
-
 // required info to connect the remote node
 type HostInfo struct {
 	ID     enode.ID
 	Pubkey *ecdsa.PublicKey
 	IP     string
 	TCP    int
-}
-
-// Handshake details
-type HandshakeDetails struct {
-	ClientName   string
-	SoftwareInfo uint64
-	Capabilities []p2p.Cap
-	Error        error
-}
-
-func NodeDetailsFromDevp2pHandshake(hdsk ethtest.HandshakeDetails) HandshakeDetails {
-	return HandshakeDetails{
-		ClientName:   hdsk.ClientName,
-		SoftwareInfo: hdsk.SoftwareInfo,
-		Capabilities: hdsk.Capabilities,
-		Error:        hdsk.Error,
-	}
 }
 
 type ConnectionAttempt struct {
@@ -119,4 +109,12 @@ func NewConnectionAttempt(id enode.ID) ConnectionAttempt {
 		ID:        id,
 		Timestamp: time.Now(),
 	}
+}
+
+type ChainDetails struct {
+	ForkID          forkid.ID
+	ProtocolVersion uint32
+	HeadHash        common.Hash
+	NetworkID       uint64
+	TotalDifficulty *big.Int
 }

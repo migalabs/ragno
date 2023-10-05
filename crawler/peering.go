@@ -170,7 +170,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 	connAttempt := models.NewConnectionAttempt(nodeID)
 	nInfo, _ := models.NewNodeInfo(nodeID, models.WithHostInfo(hInfo))
 
-	handshakeDetails, err := p.host.Connect(&hInfo)
+	handshakeDetails, chainDetails, err := p.host.Connect(&hInfo)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"node-id": nodeID.String(),
@@ -180,9 +180,14 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 		connAttempt.Status = models.FailedConnection
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"node-id":      nodeID.String(),
-			"client":       handshakeDetails.ClientName,
-			"capabilities": handshakeDetails.Capabilities,
+			"node-id":          nodeID.String(),
+			"client":           handshakeDetails.ClientName,
+			"capabilities":     handshakeDetails.Capabilities,
+			"network":          chainDetails.NetworkID,
+			"fork-id":          chainDetails.ForkID.Hash,
+			"head-hash":        chainDetails.HeadHash.String(),
+			"protocol-version": chainDetails.ProtocolVersion,
+			"total-diff":       chainDetails.TotalDifficulty,
 		}).Info("successfull connection")
 		connAttempt.Error = ethtest.ErrorNone
 		connAttempt.Status = models.SuccessfulConnection
