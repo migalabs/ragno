@@ -93,7 +93,7 @@ func (p *Peering) runOrcherster() {
 	startT := time.NewTicker(InitDelay)
 	// update the nodes from the db
 	updateNodes := func() {
-		newNodeSet, err := p.db.GetNonDeprecatedNodes()
+		newNodeSet, err := p.db.GetNonDeprecatedNodes(p.host.localChainStatus.NetworkID)
 		if err != nil {
 			logEntry.Panic("unable to update local set of nodes from DB")
 		}
@@ -190,6 +190,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 			"total-diff":       chainDetails.TotalDifficulty,
 		}).Info("successfull connection")
 		connAttempt.Error = ethtest.ErrorNone
+		connAttempt.Status = models.SuccessfulConnection
 		nInfo.HandshakeDetails = handshakeDetails
 		nInfo.ChainDetails = chainDetails
 	}
