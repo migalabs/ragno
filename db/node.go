@@ -25,7 +25,7 @@ func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAtt
 	return query, args
 }
 
-func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string, args []interface{}) {
+func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bool) (query string, args []interface{}) {
 	query = `
 	INSERT INTO node_info(
 		node_id,
@@ -42,9 +42,14 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 		client_arch,
 		client_language,
 		capabilities,
-		software_info,        
+		software_info,
+	    fork_id,
+		protocol_version,
+		head_hash,
+		network_id,
+		total_difficulty,
 		deprecated
-	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
 	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
@@ -61,7 +66,12 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 		client_language = $13,
 		capabilities = $14,
 		software_info = $15,
-		deprecated = $16;
+	    fork_id = $16,
+		protocol_version = $17,
+		head_hash = $18,
+		network_id = $19,
+		total_difficulty = $20,
+		deprecated = $21;
 	`
 	clientDetails := models.ParseUserAgent(nInfo.ClientName)
 	capabilities := make([]string, len(nInfo.Capabilities))
@@ -77,6 +87,7 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 	args = append(args, nInfo.TCP)
 	args = append(args, nInfo.Timestamp)
 	args = append(args, nInfo.Timestamp)
+	// client info
 	args = append(args, clientDetails.RawClientName)
 	args = append(args, clientDetails.ClientName)
 	args = append(args, clientDetails.ClientVersion)
@@ -86,7 +97,14 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo) (query string,
 	args = append(args, clientDetails.ClientLanguage)
 	args = append(args, capabilities)
 	args = append(args, nInfo.SoftwareInfo)
-	args = append(args, false) // we identified the peer (un-deprecate them)
+	// node chain status
+	args = append(args, hex.EncodeToString([]byte(nInfo.ForkID.Hash[:])))
+	args = append(args, nInfo.ProtocolVersion)
+	args = append(args, hex.EncodeToString(nInfo.HeadHash.Bytes()))
+	args = append(args, nInfo.NetworkID)
+	args = append(args, nInfo.TotalDifficulty.Uint64())
+	// control
+	args = append(args, !sameNetwork) // we identified the peer (un-deprecate it if the are in the same network)
 
 	return query, args
 }
@@ -119,7 +137,7 @@ func (d *PostgresDBService) upserHostInfoFromENR(hInfo *models.HostInfo) (query 
 	return query, args
 }
 
-func (d *PostgresDBService) GetNonDeprecatedNodes() ([]models.HostInfo, error) {
+func (d *PostgresDBService) GetNonDeprecatedNodes(networkID uint64) ([]models.HostInfo, error) {
 	query := `
 	SELECT
 		node_id,
@@ -127,10 +145,10 @@ func (d *PostgresDBService) GetNonDeprecatedNodes() ([]models.HostInfo, error) {
 		ip,
 		tcp
 	FROM node_info
-	WHERE deprecated='false';
+	WHERE deprecated='false' and (network_id=$1 or network_id IS NULL);
 	`
 	nodes := make([]models.HostInfo, 0)
-	rows, err := d.psqlPool.Query(d.ctx, query)
+	rows, err := d.psqlPool.Query(d.ctx, query, networkID)
 	if err != nil {
 		return nodes, errors.Wrap(err, "unable to retrieve the non-deprecated nodes")
 	}
@@ -156,7 +174,7 @@ func (d *PostgresDBService) GetNonDeprecatedNodes() ([]models.HostInfo, error) {
 }
 
 // PersistNodeInfo is the main method to persist the node info into the DB
-func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nInfo models.NodeInfo) {
+func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nInfo models.NodeInfo, sameNetwork bool) {
 	// persist the attempt
 	p := NewPersistable()
 	p.query, p.values = d.insertConnectionAttempt(attempt)
@@ -165,7 +183,7 @@ func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nI
 	// check if the connection was successfull to record the connection
 	if attempt.Status == models.SuccessfulConnection {
 		p := NewPersistable()
-		p.query, p.values = d.upsertNodeInfo(nInfo)
+		p.query, p.values = d.upsertNodeInfo(nInfo, sameNetwork)
 		d.writeChan <- p
 	}
 }

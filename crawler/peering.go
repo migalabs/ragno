@@ -93,7 +93,7 @@ func (p *Peering) runOrcherster() {
 	startT := time.NewTicker(InitDelay)
 	// update the nodes from the db
 	updateNodes := func() {
-		newNodeSet, err := p.db.GetNonDeprecatedNodes()
+		newNodeSet, err := p.db.GetNonDeprecatedNodes(p.host.localChainStatus.NetworkID)
 		if err != nil {
 			logEntry.Panic("unable to update local set of nodes from DB")
 		}
@@ -156,21 +156,21 @@ func (p *Peering) peeringWorker(workerID int) {
 // Connect applies the logic of connecting the remote node and persist the necessary results from the attempt
 func (p *Peering) Connect(hInfo models.HostInfo) {
 	// try to connect to the peer
-	connAttempt, handsDetails := p.connect(hInfo)
+	connAttempt, nodeInfo, sameNetwork := p.connect(hInfo)
 	// handle the result (check if it's deprecable) and update local perception
-	p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, &connAttempt)
+	p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, &connAttempt, sameNetwork)
 	// persist the node with all the necessary info
-	p.db.PersistNodeInfo(connAttempt, handsDetails)
+	p.db.PersistNodeInfo(connAttempt, nodeInfo, sameNetwork)
 }
 
 // connect offers the low-level connection with the remote peer
-func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, models.NodeInfo) {
+func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, models.NodeInfo, bool) {
 	logrus.Debug("new node to dial", hInfo.ID.String())
 	nodeID := enode.PubkeyToIDV4(hInfo.Pubkey)
 	connAttempt := models.NewConnectionAttempt(nodeID)
 	nInfo, _ := models.NewNodeInfo(nodeID, models.WithHostInfo(hInfo))
 
-	handshakeDetails, err := p.host.Connect(&hInfo)
+	handshakeDetails, chainDetails, err := p.host.Connect(&hInfo)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"node-id": nodeID.String(),
@@ -180,15 +180,21 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 		connAttempt.Status = models.FailedConnection
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"node-id":      nodeID.String(),
-			"client":       handshakeDetails.ClientName,
-			"capabilities": handshakeDetails.Capabilities,
+			"node-id":          nodeID.String(),
+			"client":           handshakeDetails.ClientName,
+			"capabilities":     handshakeDetails.Capabilities,
+			"network":          chainDetails.NetworkID,
+			"fork-id":          chainDetails.ForkID.Hash,
+			"head-hash":        chainDetails.HeadHash.String(),
+			"protocol-version": chainDetails.ProtocolVersion,
+			"total-diff":       chainDetails.TotalDifficulty,
 		}).Info("successfull connection")
 		connAttempt.Error = ethtest.ErrorNone
 		connAttempt.Status = models.SuccessfulConnection
 		nInfo.HandshakeDetails = handshakeDetails
+		nInfo.ChainDetails = chainDetails
 	}
-	return connAttempt, *nInfo
+	return connAttempt, *nInfo, (chainDetails.NetworkID == p.host.localChainStatus.NetworkID)
 }
 
 // --- Ordered Set ---
@@ -274,7 +280,7 @@ func (s *NodeOrderedSet) RemoveNode(nodeID enode.ID) {
 }
 
 func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
-	nodeID enode.ID, connAttempt *models.ConnectionAttempt) {
+	nodeID enode.ID, connAttempt *models.ConnectionAttempt, sameNetwork bool) {
 	logEntry := logrus.WithFields(logrus.Fields{
 		"nodeID":  nodeID.String(),
 		"attempt": connAttempt.Status.String(),
@@ -284,6 +290,12 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 	node, exists := s.GetNode(nodeID)
 	if !exists {
 		logEntry.Warn("connection attempt to a node that is untracked")
+	}
+	// directly remove the peer if th
+	if !sameNetwork { // directly prune the node from the list & deprecate it
+		connAttempt.Deprecable = true
+		s.RemoveNode(nodeID)
+		return
 	}
 	// check the state of the conn attempt
 	switch connAttempt.Status {
