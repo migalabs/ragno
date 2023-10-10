@@ -100,7 +100,7 @@ type ConnectionAttempt struct {
 	Timestamp  time.Time
 	ID         enode.ID
 	Status     ConnectionStatus
-	Error      error
+	Error      string
 	Deprecable bool
 }
 
@@ -117,4 +117,8 @@ type ChainDetails struct {
 	HeadHash        common.Hash
 	NetworkID       uint64
 	TotalDifficulty *big.Int
+}
+
+func (d *ChainDetails) IsEmpty() bool {
+	return d.NetworkID == uint64(0)
 }
