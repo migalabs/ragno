@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/sirupsen/logrus"
 	"sort"
@@ -176,7 +175,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 			"node-id": nodeID.String(),
 			"error":   err.Error(),
 		}).Debug("failed connection")
-		connAttempt.Error = err
+		connAttempt.Error = ParseConnError(err)
 		connAttempt.Status = models.FailedConnection
 	} else {
 		logrus.WithFields(logrus.Fields{
@@ -189,7 +188,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 			"protocol-version": chainDetails.ProtocolVersion,
 			"total-diff":       chainDetails.TotalDifficulty,
 		}).Info("successfull connection")
-		connAttempt.Error = ethtest.ErrorNone
+		connAttempt.Error = ErrorNone
 		connAttempt.Status = models.SuccessfulConnection
 		nInfo.HandshakeDetails = handshakeDetails
 		nInfo.ChainDetails = chainDetails
@@ -310,7 +309,7 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 		if connAttempt.Deprecable {
 			s.RemoveNode(nodeID)
 		} else {
-			node.AddNegativeDial(connAttempt.Timestamp, models.ParseStateFromError(connAttempt.Error))
+			node.AddNegativeDial(connAttempt.Timestamp, ParseStateFromError(connAttempt.Error))
 		}
 
 	default:
@@ -396,7 +395,7 @@ func (s *NodeOrderedSet) Less(i, j int) bool {
 
 // Main structure of a node that is queued to be dialed
 type QueuedNode struct {
-	state           models.DialState
+	state           DialState
 	hostInfo        models.HostInfo
 	nextDialTime    time.Time
 	deprecationTime time.Time
@@ -404,7 +403,7 @@ type QueuedNode struct {
 
 func NewQueuedNode(hInfo models.HostInfo) *QueuedNode {
 	return &QueuedNode{
-		state:           models.ZeroState,
+		state:           ZeroState,
 		hostInfo:        hInfo,
 		nextDialTime:    time.Time{},
 		deprecationTime: time.Time{},
@@ -433,12 +432,12 @@ func (n *QueuedNode) IsEmpty() bool {
 
 func (n *QueuedNode) AddPositiveDial(baseT time.Time) {
 	logrus.Trace("adding possitive dial attempt to node", n.hostInfo.ID.String())
-	n.state = models.PossitiveState
+	n.state = PossitiveState
 	n.nextDialTime = baseT.Add(n.state.DelayFromState())
 	n.deprecationTime = time.Time{}
 }
 
-func (n *QueuedNode) AddNegativeDial(baseT time.Time, state models.DialState) {
+func (n *QueuedNode) AddNegativeDial(baseT time.Time, state DialState) {
 	logrus.Trace("adding negative dial attempt to node", n.hostInfo.ID.String())
 	n.state = state
 	n.nextDialTime = baseT.Add(state.DelayFromState())

@@ -1,7 +1,6 @@
-package models
+package crawler
 
 import (
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"time"
 )
 
@@ -53,13 +52,16 @@ func (s DialState) DelayFromState() (delay time.Duration) {
 	return delay
 }
 
-func ParseStateFromError(err error) (state DialState) {
+func ParseStateFromError(err string) (state DialState) {
 	switch err {
-	case ethtest.ErrorNone:
+	case ErrorNone:
 		state = PossitiveState
-	case ethtest.ErrorWriteToConnection, ethtest.ErrorEthProtocolNegotiation,
-		ethtest.ErrorSnapProtocolNegotiation, ethtest.ErrorBadHandshake:
+	case ErrorEOF, ErrorDisconnectRequested, ErrorDecodeRLPdisconnect,
+		ErrorBadHandshake, ErrorBadHandshake2, ErrorSnappyCorryptedInput,
+		ErrorConnectionReset, ErrorConnectionRefused, ErrorTooManyPeers:
 		state = NegativeWithHopeState
+	case ErrorTimeout, ErrorUselessPeer:
+		state = NegativeWithoutHopeState
 	default:
 		state = NegativeWithHopeState
 	}

@@ -19,8 +19,41 @@ func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAtt
 	`
 	args = append(args, attempt.ID.String())
 	args = append(args, attempt.Timestamp)
-	args = append(args, attempt.Error.Error())
+	args = append(args, attempt.Error)
 	args = append(args, attempt.Deprecable)
+
+	return query, args
+}
+
+func (d *PostgresDBService) upsertNodeChainDetails(nInfo models.NodeInfo) (query string, args []interface{}) {
+	query = `
+	INSERT INTO node_info(
+		node_id,
+	    pubkey,
+	    fork_id,
+		protocol_version,
+		head_hash,
+		network_id,
+		total_difficulty
+	) VALUES($1,$2,$3,$4,$5,$6,$7)
+	ON CONFLICT (node_id) DO UPDATE SET
+	    fork_id = $3,
+		protocol_version = $4,
+		head_hash = $5,
+		network_id = $6,
+		total_difficulty = $7;
+	`
+	pubBytes := crypto.FromECDSAPub(nInfo.Pubkey)
+	pubKey := hex.EncodeToString(pubBytes)
+
+	args = append(args, nInfo.ID.String())
+	args = append(args, pubKey)
+	// node chain status
+	args = append(args, hex.EncodeToString([]byte(nInfo.ForkID.Hash[:])))
+	args = append(args, nInfo.ProtocolVersion)
+	args = append(args, hex.EncodeToString(nInfo.HeadHash.Bytes()))
+	args = append(args, nInfo.NetworkID)
+	args = append(args, nInfo.TotalDifficulty.Uint64())
 
 	return query, args
 }
@@ -43,13 +76,8 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 		client_language,
 		capabilities,
 		software_info,
-	    fork_id,
-		protocol_version,
-		head_hash,
-		network_id,
-		total_difficulty,
 		deprecated
-	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+	) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
@@ -66,12 +94,7 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 		client_language = $13,
 		capabilities = $14,
 		software_info = $15,
-	    fork_id = $16,
-		protocol_version = $17,
-		head_hash = $18,
-		network_id = $19,
-		total_difficulty = $20,
-		deprecated = $21;
+		deprecated = $16;
 	`
 	clientDetails := models.ParseUserAgent(nInfo.ClientName)
 	capabilities := make([]string, len(nInfo.Capabilities))
@@ -97,12 +120,6 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 	args = append(args, clientDetails.ClientLanguage)
 	args = append(args, capabilities)
 	args = append(args, nInfo.SoftwareInfo)
-	// node chain status
-	args = append(args, hex.EncodeToString([]byte(nInfo.ForkID.Hash[:])))
-	args = append(args, nInfo.ProtocolVersion)
-	args = append(args, hex.EncodeToString(nInfo.HeadHash.Bytes()))
-	args = append(args, nInfo.NetworkID)
-	args = append(args, nInfo.TotalDifficulty.Uint64())
 	// control
 	args = append(args, !sameNetwork) // we identified the peer (un-deprecate it if the are in the same network)
 
@@ -176,14 +193,21 @@ func (d *PostgresDBService) GetNonDeprecatedNodes(networkID uint64) ([]models.Ho
 // PersistNodeInfo is the main method to persist the node info into the DB
 func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nInfo models.NodeInfo, sameNetwork bool) {
 	// persist the attempt
-	p := NewPersistable()
-	p.query, p.values = d.insertConnectionAttempt(attempt)
-	d.writeChan <- p
+	pAttempt := NewPersistable()
+	pAttempt.query, pAttempt.values = d.insertConnectionAttempt(attempt)
+	d.writeChan <- pAttempt
 
 	// check if the connection was successfull to record the connection
 	if attempt.Status == models.SuccessfulConnection {
-		p := NewPersistable()
-		p.query, p.values = d.upsertNodeInfo(nInfo, sameNetwork)
-		d.writeChan <- p
+		pNinfo := NewPersistable()
+		pNinfo.query, pNinfo.values = d.upsertNodeInfo(nInfo, sameNetwork)
+		d.writeChan <- pNinfo
+		// check if we have chain details
+		if nInfo.ChainDetails.IsEmpty() {
+			return
+		}
+		pChainD := NewPersistable()
+		pChainD.query, pChainD.values = d.upsertNodeChainDetails(nInfo)
+		d.writeChan <- pChainD
 	}
 }

@@ -22,8 +22,6 @@ import (
 
 const (
 	Timeout                      = 15 * time.Second
-	MaxRetries     int           = 3
-	GraceTime      time.Duration = 10 * time.Second
 	DefaultTimeout time.Duration = 15 * time.Second
 )
 
@@ -156,6 +154,7 @@ func (h *Host) makeHelloHandshake(conn *ethtest.Conn) (ethtest.HandshakeDetails,
 	return conn.DetailedHandshake(h.privk, h.caps, h.highestProtoVersion)
 }
 
+// check ids at: https://chainid.network/
 func (h *Host) getChainStatus(conn *ethtest.Conn) (models.ChainDetails, error) {
 	// get chain status
 	err := conn.SetDeadline(time.Now().Add(Timeout))
