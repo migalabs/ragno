@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/hex"
+
 	"github.com/ethereum/go-ethereum/p2p/enode"
 
 	"github.com/cortze/ragno/models"
@@ -126,7 +127,7 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 	return query, args
 }
 
-func (d *PostgresDBService) upserHostInfoFromENR(hInfo *models.HostInfo) (query string, args []interface{}) {
+func (d *PostgresDBService) upsertHostInfoFromENR(hInfo *models.HostInfo) (query string, args []interface{}) {
 	query = `
 	INSERT INTO node_info(
 	    node_id,
