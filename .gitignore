@@ -17,3 +17,5 @@ scripts/venv
 scripts/.env
 scripts/csvs/*
 scripts/imgs/*
+
+.vscode
