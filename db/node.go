@@ -26,29 +26,17 @@ func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAtt
 	return query, args
 }
 
-func (d *PostgresDBService) upsertNodeChainDetails(nInfo models.NodeInfo) (query string, args []interface{}) {
+func (d *PostgresDBService) updateNodeChainDetails(nInfo models.NodeInfo) (query string, args []interface{}) {
 	query = `
-	INSERT INTO node_info(
-		node_id,
-	    pubkey,
-	    fork_id,
-		protocol_version,
-		head_hash,
-		network_id,
-		total_difficulty
-	) VALUES($1,$2,$3,$4,$5,$6,$7)
-	ON CONFLICT (node_id) DO UPDATE SET
-	    fork_id = $3,
-		protocol_version = $4,
-		head_hash = $5,
-		network_id = $6,
-		total_difficulty = $7;
+	UPDATE node_info SET
+	    fork_id = $2,
+		protocol_version = $3,
+		head_hash = $4,
+		network_id = $5,
+		total_difficulty = $6
+	WHERE node_id = $1;
 	`
-	pubBytes := crypto.FromECDSAPub(nInfo.Pubkey)
-	pubKey := hex.EncodeToString(pubBytes)
-
 	args = append(args, nInfo.ID.String())
-	args = append(args, pubKey)
 	// node chain status
 	args = append(args, hex.EncodeToString([]byte(nInfo.ForkID.Hash[:])))
 	args = append(args, nInfo.ProtocolVersion)
@@ -208,7 +196,7 @@ func (d *PostgresDBService) PersistNodeInfo(attempt models.ConnectionAttempt, nI
 			return
 		}
 		pChainD := NewPersistable()
-		pChainD.query, pChainD.values = d.upsertNodeChainDetails(nInfo)
+		pChainD.query, pChainD.values = d.updateNodeChainDetails(nInfo)
 		d.writeChan <- pChainD
 	}
 }
