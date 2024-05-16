@@ -112,7 +112,10 @@ func (p *Peering) runOrcherster() {
 				if ok {
 					continue
 				}
-				p.dialC <- nextNode.hostInfo
+				isTimeToDial := nextNode.nextDialTime.Before(time.Now())
+				if isTimeToDial {
+					p.dialC <- nextNode.hostInfo
+				}
 				dialedCache[nextNode.hostInfo.ID] = struct{}{}
 			} else {
 				// still check the contexts in case we have to interrupt
