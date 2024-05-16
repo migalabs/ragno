@@ -87,9 +87,7 @@ func (p *Peering) runOrcherster() {
 		p.orchersterWG.Done()
 	}()
 	dialedCache := make(map[enode.ID]struct{})
-	reset := func(m map[enode.ID]struct{}) {
-		m = make(map[enode.ID]struct{})
-	}
+
 	startT := time.NewTicker(InitDelay)
 	// update the nodes from the db
 	updateNodes := func() {
@@ -127,7 +125,7 @@ func (p *Peering) runOrcherster() {
 				}
 				// update the nodeSet
 				updateNodes()
-				reset(dialedCache)
+				dialedCache = make(map[enode.ID]struct{})
 				startT.Reset(InitDelay)
 			}
 		}
@@ -321,7 +319,6 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 		}).Warn("unrecognized connection-attempt status for node")
 		logrus.Panic("we should have never reached here", connAttempt)
 	}
-	return
 }
 
 // GetNode retrieves the info of the requested node
