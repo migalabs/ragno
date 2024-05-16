@@ -2,13 +2,14 @@ package crawler
 
 import (
 	"context"
+	"sort"
+	"sync"
+	"time"
+
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/sirupsen/logrus"
-	"sort"
-	"sync"
-	"time"
 )
 
 const (
@@ -290,15 +291,15 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 	if !exists {
 		logEntry.Warn("connection attempt to a node that is untracked")
 	}
-	// directly remove the peer if th
-	if !sameNetwork { // directly prune the node from the list & deprecate it
-		connAttempt.Deprecable = true
-		s.RemoveNode(nodeID)
-		return
-	}
 	// check the state of the conn attempt
 	switch connAttempt.Status {
 	case models.SuccessfulConnection:
+		// directly remove the peer if th
+		if !sameNetwork { // directly prune the node from the list & deprecate it
+			connAttempt.Deprecable = true
+			s.RemoveNode(nodeID)
+			return
+		}
 		// if possitive, all god
 		node.AddPositiveDial(connAttempt.Timestamp)
 		connAttempt.Deprecable = false
