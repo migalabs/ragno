@@ -424,7 +424,7 @@ func (n *QueuedNode) NextDialTime() time.Time {
 }
 
 func (n *QueuedNode) IsDeprecable() bool {
-	return !n.IsEmpty() && !n.deprecationTime.IsZero() && n.deprecationTime.After(time.Now())
+	return !n.IsEmpty() && !n.deprecationTime.IsZero() && n.deprecationTime.Before(time.Now())
 }
 
 func (n *QueuedNode) IsEmpty() bool {
