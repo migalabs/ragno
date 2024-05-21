@@ -2,14 +2,14 @@ package crawler
 
 import (
 	"context"
-	"github.com/cortze/ragno/db"
-	"github.com/cortze/ragno/models"
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
-	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/sirupsen/logrus"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/cortze/ragno/db"
+	"github.com/cortze/ragno/models"
+	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -87,9 +87,7 @@ func (p *Peering) runOrcherster() {
 		p.orchersterWG.Done()
 	}()
 	dialedCache := make(map[enode.ID]struct{})
-	reset := func(m map[enode.ID]struct{}) {
-		m = make(map[enode.ID]struct{})
-	}
+
 	startT := time.NewTicker(InitDelay)
 	// update the nodes from the db
 	updateNodes := func() {
@@ -114,7 +112,10 @@ func (p *Peering) runOrcherster() {
 				if ok {
 					continue
 				}
-				p.dialC <- nextNode.hostInfo
+				isTimeToDial := nextNode.nextDialTime.Before(time.Now())
+				if isTimeToDial {
+					p.dialC <- nextNode.hostInfo
+				}
 				dialedCache[nextNode.hostInfo.ID] = struct{}{}
 			} else {
 				// still check the contexts in case we have to interrupt
@@ -127,7 +128,7 @@ func (p *Peering) runOrcherster() {
 				}
 				// update the nodeSet
 				updateNodes()
-				reset(dialedCache)
+				dialedCache = make(map[enode.ID]struct{})
 				startT.Reset(InitDelay)
 			}
 		}
@@ -176,7 +177,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 			"node-id": nodeID.String(),
 			"error":   err.Error(),
 		}).Debug("failed connection")
-		connAttempt.Error = err
+		connAttempt.Error = ParseConnError(err)
 		connAttempt.Status = models.FailedConnection
 	} else {
 		logrus.WithFields(logrus.Fields{
@@ -189,7 +190,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 			"protocol-version": chainDetails.ProtocolVersion,
 			"total-diff":       chainDetails.TotalDifficulty,
 		}).Info("successfull connection")
-		connAttempt.Error = ethtest.ErrorNone
+		connAttempt.Error = ErrorNone
 		connAttempt.Status = models.SuccessfulConnection
 		nInfo.HandshakeDetails = handshakeDetails
 		nInfo.ChainDetails = chainDetails
@@ -291,15 +292,15 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 	if !exists {
 		logEntry.Warn("connection attempt to a node that is untracked")
 	}
-	// directly remove the peer if th
-	if !sameNetwork { // directly prune the node from the list & deprecate it
-		connAttempt.Deprecable = true
-		s.RemoveNode(nodeID)
-		return
-	}
 	// check the state of the conn attempt
 	switch connAttempt.Status {
 	case models.SuccessfulConnection:
+		// directly remove the peer if th
+		if !sameNetwork { // directly prune the node from the list & deprecate it
+			connAttempt.Deprecable = true
+			s.RemoveNode(nodeID)
+			return
+		}
 		// if possitive, all god
 		node.AddPositiveDial(connAttempt.Timestamp)
 		connAttempt.Deprecable = false
@@ -310,7 +311,7 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 		if connAttempt.Deprecable {
 			s.RemoveNode(nodeID)
 		} else {
-			node.AddNegativeDial(connAttempt.Timestamp, models.ParseStateFromError(connAttempt.Error))
+			node.AddNegativeDial(connAttempt.Timestamp, ParseStateFromError(connAttempt.Error))
 		}
 
 	default:
@@ -321,7 +322,6 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 		}).Warn("unrecognized connection-attempt status for node")
 		logrus.Panic("we should have never reached here", connAttempt)
 	}
-	return
 }
 
 // GetNode retrieves the info of the requested node
@@ -396,7 +396,7 @@ func (s *NodeOrderedSet) Less(i, j int) bool {
 
 // Main structure of a node that is queued to be dialed
 type QueuedNode struct {
-	state           models.DialState
+	state           DialState
 	hostInfo        models.HostInfo
 	nextDialTime    time.Time
 	deprecationTime time.Time
@@ -404,7 +404,7 @@ type QueuedNode struct {
 
 func NewQueuedNode(hInfo models.HostInfo) *QueuedNode {
 	return &QueuedNode{
-		state:           models.ZeroState,
+		state:           ZeroState,
 		hostInfo:        hInfo,
 		nextDialTime:    time.Time{},
 		deprecationTime: time.Time{},
@@ -424,7 +424,7 @@ func (n *QueuedNode) NextDialTime() time.Time {
 }
 
 func (n *QueuedNode) IsDeprecable() bool {
-	return !n.IsEmpty() && !n.deprecationTime.IsZero() && n.deprecationTime.After(time.Now())
+	return !n.IsEmpty() && !n.deprecationTime.IsZero() && n.deprecationTime.Before(time.Now())
 }
 
 func (n *QueuedNode) IsEmpty() bool {
@@ -433,12 +433,12 @@ func (n *QueuedNode) IsEmpty() bool {
 
 func (n *QueuedNode) AddPositiveDial(baseT time.Time) {
 	logrus.Trace("adding possitive dial attempt to node", n.hostInfo.ID.String())
-	n.state = models.PossitiveState
+	n.state = PossitiveState
 	n.nextDialTime = baseT.Add(n.state.DelayFromState())
 	n.deprecationTime = time.Time{}
 }
 
-func (n *QueuedNode) AddNegativeDial(baseT time.Time, state models.DialState) {
+func (n *QueuedNode) AddNegativeDial(baseT time.Time, state DialState) {
 	logrus.Trace("adding negative dial attempt to node", n.hostInfo.ID.String())
 	n.state = state
 	n.nextDialTime = baseT.Add(state.DelayFromState())

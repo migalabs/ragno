@@ -2,10 +2,11 @@ package models
 
 import (
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/forkid"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/forkid"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -14,6 +15,8 @@ import (
 type NodeInfoOption func(*NodeInfo) error
 
 type ConnectionStatus int8
+
+const EmptyNetworkId = uint64(0)
 
 func (s ConnectionStatus) String() (str string) {
 	switch s {
@@ -100,7 +103,7 @@ type ConnectionAttempt struct {
 	Timestamp  time.Time
 	ID         enode.ID
 	Status     ConnectionStatus
-	Error      error
+	Error      string
 	Deprecable bool
 }
 
@@ -117,4 +120,8 @@ type ChainDetails struct {
 	HeadHash        common.Hash
 	NetworkID       uint64
 	TotalDifficulty *big.Int
+}
+
+func (d *ChainDetails) IsEmpty() bool {
+	return d.NetworkID == EmptyNetworkId
 }

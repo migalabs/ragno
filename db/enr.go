@@ -64,6 +64,6 @@ func (d *PostgresDBService) PersistENR(enr *models.ENR) {
 	// insert new row at node_info with host_info
 	p = NewPersistable()
 	hInfo := enr.GetHostInfo()
-	p.query, p.values = d.upserHostInfoFromENR(hInfo)
+	p.query, p.values = d.upsertHostInfoFromENR(hInfo)
 	d.writeChan <- p
 }
