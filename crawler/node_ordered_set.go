@@ -25,6 +25,7 @@ func NewNodeOrderedSet() *NodeOrderedSet {
 	}
 }
 
+// Recieves a list of HostInfo and adds the nodes to the set (if they are not yet added). O(m+n*m) m being the amount of elements to try to insert and n the length of the set. Adding many new nodes can be expensive.
 func (s *NodeOrderedSet) UpdateListFromSet(nSet []models.HostInfo) {
 	// try to add the missing nodes from the DB into the NodeSet
 	newNodes := 0
@@ -45,6 +46,7 @@ func (s *NodeOrderedSet) UpdateListFromSet(nSet []models.HostInfo) {
 	}).Info("updating node-set from db-non-deprecated-set")
 }
 
+// Checks if peer node is already inserted. O(1)
 func (s *NodeOrderedSet) IsPeerAlready(nodeID enode.ID) bool {
 	// IsPeerAlready checks whether a peer is already in the Queue.
 	s.m.RLock()
@@ -53,6 +55,7 @@ func (s *NodeOrderedSet) IsPeerAlready(nodeID enode.ID) bool {
 	return ok
 }
 
+// Adds a new node to the set. O(n)
 func (s *NodeOrderedSet) AddNode(hInfo models.HostInfo) {
 	logrus.WithField("nodeID", hInfo.ID.String()).Trace("adding node to node-set")
 	qNode := NewQueuedNode(hInfo)
@@ -62,11 +65,12 @@ func (s *NodeOrderedSet) AddNode(hInfo models.HostInfo) {
 	s.nodeList = append([]*QueuedNode{qNode}, s.nodeList[:]...) // add it at the beginning of the queue
 }
 
+// Removes a node from the ordered set by nodeID. If the node isn't in the set, does nothing. O(n)
 func (s *NodeOrderedSet) RemoveNode(nodeID enode.ID) {
 	logrus.WithField("nodeID", nodeID.String()).Trace("removing node from node-set")
 	exists := s.IsPeerAlready(nodeID)
 	if !exists {
-		logrus.Warn("trying to remove a peer that was no present in the node list")
+		logrus.Warn("trying to remove a peer that was not present in the node list")
 		return
 	}
 	s.m.Lock()
@@ -133,7 +137,7 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 	}
 }
 
-// GetNode retrieves the info of the requested node
+// GetNode retrieves a pointer to a node in the set. If the node isn't in the set, it returns an empty node. O(1)
 func (s *NodeOrderedSet) GetNode(nodeID enode.ID) (*QueuedNode, bool) {
 	s.m.Lock()
 	defer s.m.Unlock()
@@ -144,7 +148,7 @@ func (s *NodeOrderedSet) GetNode(nodeID enode.ID) (*QueuedNode, bool) {
 	return p, ok
 }
 
-// IsThereNext returns a boolean indicating whether there is a new item ready to be readed
+// IsThereNext returns a boolean indicating whether there is a new item ready to be read. Used for iterating. O(1)
 func (s *NodeOrderedSet) IsThereNext() bool {
 	// did we hit the max number of peers to dial?
 	if s.nodePtr >= s.Len() {
@@ -156,6 +160,7 @@ func (s *NodeOrderedSet) IsThereNext() bool {
 	return s.nodeList[s.nodePtr].ReadyToDial()
 }
 
+// NextNode returns the next node in the ordered set.
 func (s *NodeOrderedSet) NextNode() QueuedNode {
 	s.m.Lock()
 	defer s.m.Unlock()
@@ -167,6 +172,7 @@ func (s *NodeOrderedSet) NextNode() QueuedNode {
 	return *node
 }
 
+// Resets the pointer used for getting the NextNode. O(1)
 func (s *NodeOrderedSet) resetPointer() {
 	logrus.Trace("resetting pointer at NodeSet")
 	s.m.Lock()
@@ -174,16 +180,19 @@ func (s *NodeOrderedSet) resetPointer() {
 	s.nodePtr = 0
 }
 
+// Checks if there are no nodes in the set. O(1)
 func (s *NodeOrderedSet) IsEmpty() bool {
 	return s.Len() == 0
 }
 
+// Returns the length of the set. O(1)
 func (s *NodeOrderedSet) Len() int {
 	return len(s.nodeList)
 }
 
 // ---  SORTING METHODS FOR PeerQueue ----
-// OrderSet sorts the items based on their next connection time
+
+// OrderSet sorts the items based on their next connection time. O(n*log(n))
 func (s *NodeOrderedSet) OrderSet() {
 	logrus.Tracef("ordering NodeSet with %d nodes", s.Len())
 	s.m.Lock()
@@ -200,4 +209,3 @@ func (s *NodeOrderedSet) Swap(i, j int) {
 func (s *NodeOrderedSet) Less(i, j int) bool {
 	return s.nodeList[i].NextDialTime().Before(s.nodeList[j].NextDialTime())
 }
-
