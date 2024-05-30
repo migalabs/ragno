@@ -32,7 +32,7 @@ func (s *NodeOrderedSet) UpdateListFromSet(nSet []models.HostInfo) {
 	for _, newNode := range nSet {
 		s.addNode(newNode)
 	}
-	s.OrderSet()
+	s.orderSet()
 	s.resetPointer()
 	logrus.WithFields(logrus.Fields{
 		"total-nodes-from-db": len(nSet),
@@ -192,19 +192,19 @@ func (s *NodeOrderedSet) Len() int {
 // ---  SORTING METHODS FOR PeerQueue ----
 
 // OrderSet sorts the items based on their next connection time. O(n*log(n))
-func (s *NodeOrderedSet) OrderSet() {
+func (s *NodeOrderedSet) orderSet() {
 	logrus.Tracef("ordering NodeSet with %d nodes", s.Len())
 	s.m.Lock()
 	defer s.m.Unlock()
 	sort.Sort(s)
 }
 
-// Swap is part of sort.Interface.
+// Swap is part of sort.Interface. Not intended to be called manually
 func (s *NodeOrderedSet) Swap(i, j int) {
 	s.nodeList[i], s.nodeList[j] = s.nodeList[j], s.nodeList[i]
 }
 
-// Less is part of sort.Interface. We use c.PeerList.NextConnection as the value to sort by.
+// Less is part of sort.Interface. We use c.PeerList.NextConnection as the value to sort by. Not intended to be called manually
 func (s *NodeOrderedSet) Less(i, j int) bool {
 	return s.nodeList[i].NextDialTime().Before(s.nodeList[j].NextDialTime())
 }
