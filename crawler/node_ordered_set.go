@@ -28,20 +28,15 @@ func NewNodeOrderedSet() *NodeOrderedSet {
 // Recieves a list of HostInfo and adds the nodes to the set (if they are not yet added). O(m+n*m) m being the amount of elements to try to insert and n the length of the set. Adding many new nodes can be expensive.
 func (s *NodeOrderedSet) UpdateListFromSet(nSet []models.HostInfo) {
 	// try to add the missing nodes from the DB into the NodeSet
-	newNodes := 0
+	prevLen := s.Len()
 	for _, newNode := range nSet {
-		exists := s.IsPeerAlready(newNode.ID)
-		if exists {
-			continue
-		}
-		newNodes++
-		s.AddNode(newNode)
+		s.addNode(newNode)
 	}
 	s.OrderSet()
 	s.resetPointer()
 	logrus.WithFields(logrus.Fields{
 		"total-nodes-from-db": len(nSet),
-		"new-nodes-from-db":   newNodes,
+		"new-nodes-from-db":   s.Len() - prevLen,
 		"total-nodes-in-set":  s.Len(),
 	}).Info("updating node-set from db-non-deprecated-set")
 }
@@ -56,8 +51,12 @@ func (s *NodeOrderedSet) IsPeerAlready(nodeID enode.ID) bool {
 }
 
 // Adds a new node to the set. O(n)
-func (s *NodeOrderedSet) AddNode(hInfo models.HostInfo) {
+func (s *NodeOrderedSet) addNode(hInfo models.HostInfo) {
 	logrus.WithField("nodeID", hInfo.ID.String()).Trace("adding node to node-set")
+	exists := s.IsPeerAlready(hInfo.ID)
+	if exists {
+		return
+	}
 	qNode := NewQueuedNode(hInfo)
 	s.m.Lock()
 	defer s.m.Unlock()
