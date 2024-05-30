@@ -26,16 +26,16 @@ func NewNodeOrderedSet() *NodeOrderedSet {
 }
 
 // Recieves a list of HostInfo and adds the nodes to the set (if they are not yet added). O(m+n*m) m being the amount of elements to try to insert and n the length of the set. Adding many new nodes can be expensive.
-func (s *NodeOrderedSet) UpdateListFromSet(nSet []models.HostInfo) {
+func (s *NodeOrderedSet) UpdateSetFromList(newNodeList []models.HostInfo) {
 	// try to add the missing nodes from the DB into the NodeSet
 	prevLen := s.Len()
-	for _, newNode := range nSet {
+	for _, newNode := range newNodeList {
 		s.addNode(newNode)
 	}
 	s.orderSet()
 	s.resetPointer()
 	logrus.WithFields(logrus.Fields{
-		"total-nodes-from-db": len(nSet),
+		"total-nodes-from-db": len(newNodeList),
 		"new-nodes-from-db":   s.Len() - prevLen,
 		"total-nodes-in-set":  s.Len(),
 	}).Info("updating node-set from db-non-deprecated-set")

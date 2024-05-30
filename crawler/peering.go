@@ -94,7 +94,7 @@ func (p *Peering) runOrcherster() {
 		if err != nil {
 			logEntry.Panic("unable to update local set of nodes from DB")
 		}
-		p.nodeSet.UpdateListFromSet(newNodeSet)
+		p.nodeSet.UpdateSetFromList(newNodeSet)
 	}
 	updateNodes()
 	for {
