@@ -31,7 +31,7 @@ func TestNodeOrderedSetAddRemove(t *testing.T) {
 	}
 	nodes.addNode(hostInfo1)
 	if nodes.Len() != 1 {
-		t.Errorf("Node set lenght is %d instead of the expected 1", nodes.Len())
+		t.Error("Should not be able to add a duplicate node")
 	}
 
 	nodeId2 := enode.HexID("2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
@@ -81,5 +81,36 @@ func TestNodeOrderedSetAddRemove(t *testing.T) {
 
 	if nodes.Len() != 0 || !nodes.IsEmpty() {
 		t.Errorf("Node set lenght is %d instead of the expected 0", nodes.Len())
+	}
+}
+
+func TestNodeOrderedSetUpdateFromList(t *testing.T) {
+	nodeId1 := enode.HexID("1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	hostInfo1 := models.HostInfo{
+		ID: nodeId1,
+	}
+	nodeId2 := enode.HexID("2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	hostInfo2 := models.HostInfo{
+		ID: nodeId2,
+	}
+	nodeId3 := enode.HexID("3aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	hostInfo3 := models.HostInfo{
+		ID: nodeId3,
+	}
+	hosts := []models.HostInfo{
+		hostInfo1, hostInfo2, hostInfo3,
+	}
+
+	nodes := NewNodeOrderedSet()
+	nodes.UpdateSetFromList(hosts)
+
+	if nodes.Len() != len(hosts) {
+		t.Errorf("Length of set is %d and should be %d", nodes.Len(), len(hosts))
+	}
+
+	nodes.UpdateSetFromList(hosts)
+
+	if nodes.Len() != len(hosts) {
+		t.Errorf("Length of set is %d and should be %d. (Repeated nodes are being added)", nodes.Len(), len(hosts))
 	}
 }
