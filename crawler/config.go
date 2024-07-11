@@ -10,7 +10,7 @@ import (
 var (
 	// crawler host related metrics
 	DefaultLogLevel             = "info"
-	DefaultDBEndpoint           = "postgresql://user:password@localhost:5440/ragnodb?sslmode=disable"
+	DefaultDBEndpoint           = "postgresql://user:password@localhost:5432/ragnodb"
 	DefaultHostIP               = "0.0.0.0"
 	DefaultHostPort             = 9050
 	DefaultMetricsIP            = "localhost"
