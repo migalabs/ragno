@@ -6,11 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cortze/ragno/crawler"
-
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
+
+	"github.com/cortze/ragno/crawler"
 )
 
 var RunCommand = &cli.Command{
@@ -63,6 +63,12 @@ var RunCommand = &cli.Command{
 			Usage:   "Number of workers that will be used to save into the DB",
 			Aliases: []string{"cs"},
 			EnvVars: []string{"RAGNO_SAVER_NUM"},
+		},
+		&cli.StringFlag{
+			Name:    "conn-timeout",
+			Usage:   "Timeout in seconds for peer connection",
+			Aliases: []string{"ct"},
+			EnvVars: []string{"CONN_TIMEOUT"},
 		},
 	},
 }

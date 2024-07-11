@@ -1,6 +1,8 @@
 package crawler
 
 import (
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
@@ -8,24 +10,26 @@ import (
 var (
 	// crawler host related metrics
 	DefaultLogLevel             = "info"
-	DefaultDBEndpoint           = "postgresql://user:password@localhost:5432/ragnodb"
+	DefaultDBEndpoint           = "postgresql://user:password@localhost:5440/ragnodb?sslmode=disable"
 	DefaultHostIP               = "0.0.0.0"
 	DefaultHostPort             = 9050
 	DefaultMetricsIP            = "localhost"
 	DefaultMetricsPort          = 9070
 	DefaultConcurrentDialers    = 150
 	DefaultConcurrentPersisters = 2
+	DefaultConnTimeout          = 20 * time.Second
 )
 
 type CrawlerRunConf struct {
-	LogLevel    string `yaml:"log-level"`
-	DbEndpoint  string `yaml:"db-endpoint"`
-	HostIP      string `yaml:"ip"`
-	HostPort    int    `yaml:"port"`
-	MetricsIP   string `yaml:"metrics-ip"`
-	MetricsPort int    `yaml:"metics-port"`
-	Dialers     int    `yaml:"dialers"`
-	Persisters  int    `yaml:"persisters"`
+	LogLevel    string           `yaml:"log-level"`
+	DbEndpoint  string           `yaml:"db-endpoint"`
+	HostIP      string           `yaml:"ip"`
+	HostPort    int              `yaml:"port"`
+	MetricsIP   string           `yaml:"metrics-ip"`
+	MetricsPort int              `yaml:"metics-port"`
+	Dialers     int              `yaml:"dialers"`
+	Persisters  int              `yaml:"persisters"`
+	ConnTimeout time.Duration    `yaml:"conn-timeout"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
@@ -38,6 +42,7 @@ func NewDefaultRun() *CrawlerRunConf {
 		MetricsPort: DefaultMetricsPort,
 		Dialers:     DefaultConcurrentDialers,
 		Persisters:  DefaultConcurrentPersisters,
+		ConnTimeout: DefaultConnTimeout,
 	}
 }
 
@@ -72,6 +77,9 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	}
 	if ctx.IsSet("persisters") {
 		c.Persisters = ctx.Int("persisters")
+	}
+	if ctx.IsSet("conn-timeout") {
+		c.ConnTimeout = time.Duration(ctx.Int("conn-timeout")) * time.Second
 	}
 	return nil
 }
