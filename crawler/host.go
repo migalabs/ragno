@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	Timeout = 5 * time.Second
+	Timeout = 15 * time.Second
 )
 
 type Host struct {
