@@ -4,25 +4,24 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/forkid"
 	"math/big"
 	"net"
 	"time"
 
-	"github.com/cortze/ragno/models"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+
+	"github.com/cortze/ragno/models"
 )
 
 const (
-	Timeout                      = 15 * time.Second
-	DefaultTimeout time.Duration = 15 * time.Second
+	Timeout = 5 * time.Second
 )
 
 type Host struct {
@@ -41,9 +40,10 @@ type Host struct {
 
 type HostOption func(*Host) error
 
-func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Host, error) {
+func NewHost(ctx context.Context, ip string, port int, timeout time.Duration, opts ...HostOption) (*Host, error) {
 	ad := fmt.Sprintf("%s:%d", ip, port)
 	addr, err := net.ResolveTCPAddr("tcp", ad)
+
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 	h := &Host{
 		ctx: ctx,
 		dialer: net.Dialer{
-			Timeout:   DefaultTimeout,
+			Timeout:   timeout * time.Second,
 			LocalAddr: addr,
 		},
 		privk: newPrivk,
