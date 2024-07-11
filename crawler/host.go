@@ -53,7 +53,7 @@ func NewHost(ctx context.Context, ip string, port int, timeout time.Duration, op
 	h := &Host{
 		ctx: ctx,
 		dialer: net.Dialer{
-			Timeout:   timeout * time.Second,
+			Timeout:   timeout,
 			LocalAddr: addr,
 		},
 		privk: newPrivk,
@@ -130,7 +130,7 @@ func (h *Host) Connect(remoteNode *models.HostInfo) (ethtest.HandshakeDetails, m
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
 func (h *Host) dial(ip string, port int, pubkey *ecdsa.PublicKey) (*ethtest.Conn, ethtest.HandshakeDetails, error) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
+	netConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), h.dialer.Timeout)
 	if err != nil {
 		return &ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
 	}
