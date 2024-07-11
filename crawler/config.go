@@ -17,7 +17,7 @@ var (
 	DefaultMetricsPort          = 9070
 	DefaultConcurrentDialers    = 150
 	DefaultConcurrentPersisters = 2
-	DefaultConnTimeout          = 20 * time.Second
+	DefaultConnTimeout          = 30 * time.Second
 )
 
 type CrawlerRunConf struct {
