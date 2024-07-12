@@ -1,12 +1,14 @@
 package cmd
 
 import (
-	"github.com/cortze/ragno/crawler"
-	"github.com/cortze/ragno/models"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"time"
+
+	"github.com/cortze/ragno/crawler"
+	"github.com/cortze/ragno/models"
 )
 
 var RWDeadline time.Duration = 20 * time.Second // for the read and write operations with the remote remoteNodes
@@ -18,10 +20,11 @@ var (
 )
 
 var connectOptions struct {
-	lvl      string
-	enr      string
-	hostIP   string
-	hostPort int
+	lvl          string
+	enr          string
+	hostIP       string
+	hostPort     int
+	connTimeout  time.Duration
 }
 
 var ConnectCmd = &cli.Command{
@@ -56,6 +59,13 @@ var ConnectCmd = &cli.Command{
 			Required:    true,
 			Destination: &connectOptions.enr,
 		},
+		&cli.DurationFlag{
+			Name:        "conn-timeout",
+			Usage:       "Timeout in seconds for connection",
+			Aliases:     []string{"ct"},
+			Required:    true,
+			Destination: &connectOptions.connTimeout,
+		},
 	},
 }
 
@@ -67,11 +77,11 @@ func connect(ctx *cli.Context) error {
 	if connectOptions.hostPort == 0 {
 		connectOptions.hostPort = DefaultHostPort
 	}
-
 	host, err := crawler.NewHost(
 		ctx.Context,
 		connectOptions.hostIP,
 		connectOptions.hostPort,
+		connectOptions.connTimeout,
 	)
 	if err != nil {
 		logrus.Error("failed to create host:")

@@ -4,25 +4,24 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/forkid"
 	"math/big"
 	"net"
 	"time"
 
-	"github.com/cortze/ragno/models"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
 	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+
+	"github.com/cortze/ragno/models"
 )
 
 const (
-	Timeout                      = 15 * time.Second
-	DefaultTimeout time.Duration = 15 * time.Second
+	Timeout = 15 * time.Second
 )
 
 type Host struct {
@@ -41,9 +40,10 @@ type Host struct {
 
 type HostOption func(*Host) error
 
-func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Host, error) {
+func NewHost(ctx context.Context, ip string, port int, timeout time.Duration, opts ...HostOption) (*Host, error) {
 	ad := fmt.Sprintf("%s:%d", ip, port)
 	addr, err := net.ResolveTCPAddr("tcp", ad)
+
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func NewHost(ctx context.Context, ip string, port int, opts ...HostOption) (*Hos
 	h := &Host{
 		ctx: ctx,
 		dialer: net.Dialer{
-			Timeout:   DefaultTimeout,
+			Timeout:   timeout,
 			LocalAddr: addr,
 		},
 		privk: newPrivk,
@@ -130,7 +130,7 @@ func (h *Host) Connect(remoteNode *models.HostInfo) (ethtest.HandshakeDetails, m
 
 // dial opens a new net connection with the respective rlxp one to make the handshakes
 func (h *Host) dial(ip string, port int, pubkey *ecdsa.PublicKey) (*ethtest.Conn, ethtest.HandshakeDetails, error) {
-	netConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
+	netConn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), h.dialer.Timeout)
 	if err != nil {
 		return &ethtest.Conn{}, ethtest.HandshakeDetails{Error: errors.Wrap(err, "unable to net.dial node")}, err
 	}

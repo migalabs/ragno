@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/cortze/ragno/db"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cortze/ragno/db"
 	peerDisc "github.com/cortze/ragno/peerdiscovery"
 )
 
@@ -41,6 +41,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		ctx,
 		conf.HostIP,
 		conf.HostPort,
+		conf.ConnTimeout,
 		// default configuration so far
 	)
 	if err != nil {
