@@ -1,0 +1,12 @@
+global:
+  scrape_interval:     15s # Default is every 1 minute.
+  evaluation_interval: 15s # Default is every 1 minute.
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+rule_files:
+scrape_configs:
+  - job_name: 'crawler'
+    static_configs:
+      - targets: ['eth_crawler:9085']

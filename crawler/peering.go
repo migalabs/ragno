@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cortze/ragno/db"
-	"github.com/cortze/ragno/models"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cortze/ragno/db"
+	"github.com/cortze/ragno/models"
 )
 
 const (
@@ -93,6 +94,7 @@ func (p *Peering) runOrcherster() {
 	updateNodes := func() {
 		newNodeSet, err := p.db.GetNonDeprecatedNodes(p.host.localChainStatus.NetworkID)
 		if err != nil {
+			logEntry.Panic(err.Error())
 			logEntry.Panic("unable to update local set of nodes from DB")
 		}
 		p.nodeSet.UpdateListFromSet(newNodeSet)

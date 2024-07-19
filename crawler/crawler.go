@@ -9,10 +9,12 @@ import (
 
 	"github.com/cortze/ragno/db"
 	peerDisc "github.com/cortze/ragno/peerdiscovery"
+	metrics "github.com/cortze/ragno/pkg/metrics"
 )
 
 const (
-	retryDelay = 10 * time.Second
+	retryDelay                       = 10 * time.Second
+	MetricLoopInterval time.Duration = 15 * time.Second
 )
 
 type Crawler struct {
@@ -20,12 +22,14 @@ type Crawler struct {
 	doneC chan struct{}
 	// host
 	host *Host
-	// peering
+	// peeringw
 	peering *Peering
 	// database
 	db *db.PostgresDBService
 	// discovery
 	peerDisc *peerDisc.PeerDiscovery
+	// metrics
+	metrics *metrics.PrometheusMetrics
 }
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
@@ -49,6 +53,9 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		return nil, err
 	}
 
+	prometheusMetrics := metrics.NewPrometheusMetrics(
+		ctx, conf.MetricsIP, conf.MetricsPort, conf.MetricsEndpoint, MetricLoopInterval)
+
 	// create the peer discoverer
 	discv4, err := peerDisc.NewDiscv4(ctx, conf.HostPort)
 	if err != nil {
@@ -67,7 +74,12 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		peering:  NewPeeringService(ctx, host, db, conf.Dialers),
 		db:       db,
 		peerDisc: discvService,
+		metrics:  prometheusMetrics,
 	}
+
+	crawlerMetricsModule := crwl.GetMetrics()
+	prometheusMetrics.AddMetricsModule(crawlerMetricsModule)
+
 	return crwl, nil
 }
 
@@ -78,7 +90,7 @@ func (c *Crawler) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "starting peer-discovery")
 	}
-	// TODO: run metrics
+	c.metrics.Start()
 	return c.peering.Run()
 }
 
@@ -95,5 +107,7 @@ func (c *Crawler) Close() {
 	// stop db
 	logrus.Info("crawler: closing database")
 	c.db.Finish()
+	// stop metrics
+	c.metrics.Close()
 	logrus.Info("Ragno closing routine done! See you!")
 }

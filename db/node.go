@@ -3,16 +3,16 @@ package db
 import (
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/pkg/errors"
 
 	"github.com/cortze/ragno/models"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 )
 
 func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAttempt) (query string, args []interface{}) {
 	query = `
-	UPDATE node_info SET 
+	UPDATE node_info SET
 		last_tried=$2,
 		error=$3,
 		deprecated=$4
@@ -70,8 +70,8 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
-		first_connected = CASE 
-			WHEN excluded.first_connected IS NOT NULL THEN excluded.first_connected 
+		first_connected = CASE
+			WHEN excluded.first_connected IS NOT NULL THEN excluded.first_connected
 			ELSE $5 END,
 		last_connected = $6,
 		raw_user_agent = $7,
