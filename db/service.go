@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -37,11 +38,15 @@ type PostgresDBService struct {
 	writeChan chan Persistable // Receive persist requests
 	doneC     chan struct{}
 	workerNum int
+
+	snapshotInterval time.Duration // how often do active_peers get stored
 }
 
 // Connect to the PostgreSQL Database and get the multithread-proof connection
 // from the given url-composed credentials
-func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBService, error) {
+func ConnectToDB(
+	ctx context.Context, url string, workerNum int, snapshotInterval time.Duration,
+) (*PostgresDBService, error) {
 	// spliting the url to don't share any confidential information on wlogs
 	wlog.Infof("Connecting to postgres DB %s", url)
 	if strings.Contains(url, "@") {
@@ -57,24 +62,47 @@ func ConnectToDB(ctx context.Context, url string, workerNum int) (*PostgresDBSer
 	// filter the type of network that we are filtering
 
 	psqlDB := &PostgresDBService{
-		ctx:           ctx,
-		connectionUrl: url,
-		psqlPool:      psqlPool,
-		writeChan:     make(chan Persistable, workerNum),
-		workerNum:     workerNum,
-		doneC:         make(chan struct{}),
+		ctx:              ctx,
+		connectionUrl:    url,
+		psqlPool:         psqlPool,
+		writeChan:        make(chan Persistable, workerNum),
+		workerNum:        workerNum,
+		doneC:            make(chan struct{}),
+		snapshotInterval: snapshotInterval,
 	}
 	// init the psql db
 	err = psqlDB.init(ctx, psqlDB.psqlPool)
 	if err != nil {
 		return psqlDB, errors.Wrap(err, "error initializing the tables of the psqldb")
 	}
+	go psqlDB.snapshotActivePeers()
 	go psqlDB.runWriters()
 	return psqlDB, err
 }
 
 func (p *PostgresDBService) init(ctx context.Context, pool *pgxpool.Pool) error {
 	return p.makeMigrations()
+}
+
+func (p *PostgresDBService) snapshotActivePeers() {
+	// make a first backup of the active peers(if any)
+	err := p.PersistActivePeers()
+	if err != nil {
+		logrus.Error(err)
+	}
+	fmt.Println(p.snapshotInterval)
+	ticker := time.NewTicker(p.snapshotInterval)
+	for {
+		select {
+		case <-ticker.C:
+			err := p.PersistActivePeers()
+			if err != nil {
+				logrus.Error(err)
+			}
+		case <-p.ctx.Done():
+			return
+		}
+	}
 }
 
 func (p *PostgresDBService) Finish() {
