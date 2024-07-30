@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -90,7 +89,6 @@ func (p *PostgresDBService) snapshotActivePeers() {
 	if err != nil {
 		logrus.Error(err)
 	}
-	fmt.Println(p.snapshotInterval)
 	ticker := time.NewTicker(p.snapshotInterval)
 	for {
 		select {
