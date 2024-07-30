@@ -3,7 +3,7 @@
 
 # The folder that keeps the binaries
 build/
-ragno/postgres_db
+app-data/*_db
 
 # The IDE folder
 .idea
