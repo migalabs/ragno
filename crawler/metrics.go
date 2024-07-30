@@ -63,13 +63,13 @@ var (
 	// },
 	// 	[]string{"ip_host"},
 	// )
-	// RttDist = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	// 	Namespace: moduleName,
-	// 	Name:      "observed_rtt_distribution",
-	// 	Help:      "Distribution of RTT between the crawler and nodes in the network",
-	// },
-	// 	[]string{"secs"},
-	// )
+	RttDist = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: moduleName,
+		Name:      "observed_rtt_distribution",
+		Help:      "Distribution of RTT between the crawler and nodes in the network",
+	},
+		[]string{"secs"},
+	)
 	IPDist = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "observed_ip_distribution",
@@ -93,7 +93,7 @@ func (crawler *Crawler) GetMetrics() *metrics.MetricsModule {
 	metricsModule.AddMetric(crawler.getPeersOs())
 	metricsModule.AddMetric(crawler.getPeersArch())
 	// metricsModule.AddMetric(crawler.getHostedPeers())
-	// metricsModule.AddMetric(crawler.getRTTDist())
+	metricsModule.AddMetric(crawler.getRTTDist())
 	metricsModule.AddMetric(crawler.getIPDist())
 	return (metricsModule)
 }
@@ -281,28 +281,28 @@ func (c *Crawler) getPeersArch() *metrics.Metric {
 // 	return ipHosting
 // }
 
-// func (c *Crawler) getRTTDist() *metrics.Metric {
-// 	initFn := func() error {
-// 		prometheus.MustRegister(RttDist)
-// 		return nil
-// 	}
-// 	updateFn := func() (interface{}, error) {
-// 		summary, err := c.db.GetRTTDistribution()
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		for key, val := range summary {
-// 			RttDist.WithLabelValues(key).Set(float64(val.(int)))
-// 		}
-// 		return summary, nil
-// 	}
-// 	indvMetric := metrics.NewMetric(
-// 		"rtt_distribution",
-// 		initFn,
-// 		updateFn,
-// 	)
-// 	return indvMetric
-// }
+func (c *Crawler) getRTTDist() *metrics.Metric {
+	initFn := func() error {
+		prometheus.MustRegister(RttDist)
+		return nil
+	}
+	updateFn := func() (interface{}, error) {
+		summary, err := c.db.GetRTTDistribution()
+		if err != nil {
+			return nil, err
+		}
+		for key, val := range summary {
+			RttDist.WithLabelValues(key).Set(float64(val.(int)))
+		}
+		return summary, nil
+	}
+	indvMetric := metrics.NewMetric(
+		"rtt_distribution",
+		initFn,
+		updateFn,
+	)
+	return indvMetric
+}
 
 func (c *Crawler) getIPDist() *metrics.Metric {
 	initFn := func() error {

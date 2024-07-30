@@ -12,9 +12,9 @@ services:
       - POSTGRES_DATABASE=${DB_DATABASE}
     volumes:
       - type: bind
-        source: ./ragno/init-db.sql
+        source: ./app-data/init-db.sql
         target: /docker-entrypoint-initdb.d/docker_postgres_init.sql
-      - ./ragno/postgres_db:/var/lib/postgresql/data
+      - ./app-data/postgres_db:/var/lib/postgresql/data
     networks: [ cluster ]
     ports:
       - "127.0.0.1:${DB_PORT}:5432"
@@ -31,7 +31,7 @@ services:
       - type: bind
         source: ./prometheus/
         target: /etc/prometheus/
-      - ./ragno/prometheus_db:/prometheus/data
+      - ./app-data/prometheus_db:/prometheus/data
 
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

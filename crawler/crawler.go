@@ -90,6 +90,7 @@ func (c *Crawler) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "starting peer-discovery")
 	}
+	logrus.Info("Starting metrics")
 	c.metrics.Start()
 	return c.peering.Run()
 }
@@ -108,6 +109,7 @@ func (c *Crawler) Close() {
 	logrus.Info("crawler: closing database")
 	c.db.Finish()
 	// stop metrics
+	logrus.Info("crawler: closing metrics")
 	c.metrics.Close()
 	logrus.Info("Ragno closing routine done! See you!")
 }

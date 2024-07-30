@@ -5,10 +5,9 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/forkid"
-
-	"github.com/ethereum/go-ethereum/cmd/devp2p/tooling/ethtest"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
@@ -104,6 +103,7 @@ type ConnectionAttempt struct {
 	ID         enode.ID
 	Status     ConnectionStatus
 	Error      string
+	Latency    time.Duration
 	Deprecable bool
 }
 
