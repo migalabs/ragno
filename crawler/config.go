@@ -38,16 +38,17 @@ type CrawlerRunConf struct {
 
 func NewDefaultRun() *CrawlerRunConf {
 	return &CrawlerRunConf{
-		LogLevel:        DefaultLogLevel,
-		DbEndpoint:      DefaultDBEndpoint,
-		HostIP:          DefaultHostIP,
-		HostPort:        DefaultHostPort,
-		MetricsIP:       DefaultMetricsIP,
-		MetricsPort:     DefaultMetricsPort,
-		MetricsEndpoint: DefaultMetricsEndpoint,
-		Dialers:         DefaultConcurrentDialers,
-		Persisters:      DefaultConcurrentPersisters,
-		ConnTimeout:     DefaultConnTimeout,
+		LogLevel:         DefaultLogLevel,
+		DbEndpoint:       DefaultDBEndpoint,
+		HostIP:           DefaultHostIP,
+		HostPort:         DefaultHostPort,
+		MetricsIP:        DefaultMetricsIP,
+		MetricsPort:      DefaultMetricsPort,
+		MetricsEndpoint:  DefaultMetricsEndpoint,
+		Dialers:          DefaultConcurrentDialers,
+		Persisters:       DefaultConcurrentPersisters,
+		ConnTimeout:      DefaultConnTimeout,
+		SnapshotInterval: DefaultSnapshotInterval,
 	}
 }
 
@@ -100,12 +101,10 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 		c.Persisters = ctx.Int("persisters")
 	}
 	if ctx.IsSet("conn-timeout") {
-		c.ConnTimeout = time.Duration(ctx.Int("conn-timeout")) * time.Second
+		c.ConnTimeout = c.parseDurationVar("conn-timeout", DefaultConnTimeout, ctx)
 	}
 	if ctx.IsSet("snapshot-interval") {
 		c.SnapshotInterval = c.parseDurationVar("snapshot-interval", DefaultSnapshotInterval, ctx)
-	} else {
-		c.SnapshotInterval = DefaultSnapshotInterval
 	}
 	return nil
 }
