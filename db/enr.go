@@ -3,10 +3,10 @@ package db
 import (
 	"encoding/hex"
 
-	"github.com/cortze/ragno/models"
+	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/cortze/ragno/models"
 )
 
 func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []interface{}) {
@@ -22,7 +22,7 @@ func (d *PostgresDBService) insertENR(node *models.ENR) (query string, args []in
 		udp,
 		seq,
 		pubkey,
-		record, 
+		record,
 	    score
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	ON CONFLICT (node_id) DO UPDATE SET
