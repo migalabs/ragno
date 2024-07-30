@@ -34,7 +34,7 @@ type Crawler struct {
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create db crawler
-	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.Persisters)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.Persisters, conf.SnapshotInterval)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
