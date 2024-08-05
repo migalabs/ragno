@@ -10,6 +10,7 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DATABASE=${DB_DATABASE}
+      - PGPORT=${DB_PORT}
     volumes:
       - type: bind
         source: ./app-data/init-db.sql
@@ -17,7 +18,7 @@ services:
       - ./app-data/postgres_db:/var/lib/postgresql/data
     networks: [ cluster ]
     ports:
-      - "127.0.0.1:${DB_PORT}:5432"
+      - "127.0.0.1:${DB_PORT}:${DB_PORT}"
     healthcheck:
       test: pg_isready -U ${DB_USER} -d ${DB_DATABASE}
       interval: 10s
