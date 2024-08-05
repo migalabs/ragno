@@ -23,6 +23,7 @@ func (db *PostgresDBService) GetClientDistribution() (map[string]interface{}, er
 			FROM node_info
 			WHERE
 				first_connected IS NOT NULL AND
+				network_id = 1 AND
 				deprecated = 'false' AND
 				client_name IS NOT NULL AND
 				last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -66,6 +67,7 @@ func (db *PostgresDBService) GetVersionDistribution() (map[string]interface{}, e
 			FROM node_info
 			WHERE
 				first_connected IS NOT NULL AND
+				network_id = 1 AND
 				deprecated = 'false' AND
 				client_name IS NOT NULL AND
 				last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -110,6 +112,7 @@ func (db *PostgresDBService) GetGeoDistribution() (map[string]interface{}, error
 				FROM node_info
 				RIGHT JOIN ip_info on node_info.ip = ip_info.ip
 				WHERE first_connected IS NOT NULL AND
+				network_id = 1 AND
 					deprecated = 'false' AND
 					client_name IS NOT NULL AND
 					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -148,6 +151,7 @@ func (db *PostgresDBService) GetOsDistribution() (map[string]interface{}, error)
 				count(client_os) as nodes
 			FROM node_info
 			WHERE first_connected IS NOT NULL AND
+				network_id = 1 AND
 				deprecated = 'false' AND
 				client_name IS NOT NULL AND
 				last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -181,6 +185,7 @@ func (db *PostgresDBService) GetArchDistribution() (map[string]interface{}, erro
 				count(client_arch) as nodes
 			FROM node_info
 			WHERE first_connected IS NOT NULL AND
+				network_id = 1 AND
 				deprecated = 'false' AND
 				client_name IS NOT NULL AND
 				last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -225,6 +230,7 @@ func (db *PostgresDBService) GetHostingDistribution() (map[string]interface{}, e
 			INNER JOIN ip_info ON ni.ip=ip_info.ip
 			WHERE ni.deprecated='false' and
 			      first_connected IS NOT NULL AND
+				  network_id = 1 AND
 			      client_name IS NOT NULL and
 			      ip_info.mobile='true' and
 			      last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -256,6 +262,7 @@ func (db *PostgresDBService) GetHostingDistribution() (map[string]interface{}, e
 			INNER JOIN ip_info ON ni.ip=ip_info.ip
 			WHERE ni.deprecated='false' and
 			      first_connected IS NOT NULL AND
+				  network_id = 1 AND
 			      client_name IS NOT NULL and ip_info.proxy='true' and
 			      last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
 		) as aux
@@ -286,6 +293,7 @@ func (db *PostgresDBService) GetHostingDistribution() (map[string]interface{}, e
 			INNER JOIN ip_info ON ni.ip=ip_info.ip
 			WHERE ni.deprecated='false' and
 			      first_connected IS NOT NULL AND
+				  network_id = 1 AND
 			      client_name IS NOT NULL and
 			      ip_info.hosting='true' and
 			      last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
@@ -315,6 +323,7 @@ func (db *PostgresDBService) GetIPDistribution() (map[string]interface{}, error)
 					count(ip) as nodes
 				FROM node_info
 				WHERE deprecated = false AND
+					network_id = 1 AND
 					client_name IS NOT NULL AND
 					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
 				GROUP BY ip
@@ -370,6 +379,7 @@ func (db *PostgresDBService) GetRTTDistribution() (map[string]interface{}, error
 					END as latency
 				FROM node_info
 				WHERE deprecated = false AND
+					network_id = 1 AND
 					client_name IS NOT NULL AND
 					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
 			) as t
