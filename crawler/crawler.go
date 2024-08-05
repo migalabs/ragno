@@ -9,6 +9,7 @@ import (
 
 	"github.com/cortze/ragno/db"
 	peerDisc "github.com/cortze/ragno/peerdiscovery"
+	apis "github.com/cortze/ragno/pkg/apis"
 	metrics "github.com/cortze/ragno/pkg/metrics"
 )
 
@@ -26,6 +27,8 @@ type Crawler struct {
 	peering *Peering
 	// database
 	db *db.PostgresDBService
+	// IP locator
+	IPLocator *apis.IPLocator
 	// discovery
 	peerDisc *peerDisc.PeerDiscovery
 	// metrics
@@ -67,14 +70,18 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		logrus.Error(err)
 		return nil, err
 	}
+
+	IPLocator := apis.NewIPLocator(ctx, db)
+
 	crwl := &Crawler{
 		ctx:      ctx,
 		doneC:    make(chan struct{}, 1),
 		host:     host,
-		peering:  NewPeeringService(ctx, host, db, conf.Dialers),
+		peering:  NewPeeringService(ctx, host, db, conf.Dialers, IPLocator),
 		db:       db,
 		peerDisc: discvService,
 		metrics:  prometheusMetrics,
+		IPLocator: IPLocator,
 	}
 
 	crawlerMetricsModule := crwl.GetMetrics()
@@ -90,6 +97,8 @@ func (c *Crawler) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "starting peer-discovery")
 	}
+	logrus.Info("Starting IP Locator")
+	c.IPLocator.Run()
 	c.metrics.Start()
 	return c.peering.Run()
 }
@@ -107,6 +116,8 @@ func (c *Crawler) Close() {
 	// stop db
 	logrus.Info("crawler: closing database")
 	c.db.Finish()
+	// stop IPLocator
+	c.IPLocator.Close()
 	// stop metrics
 	c.metrics.Close()
 	logrus.Info("Ragno closing routine done! See you!")
