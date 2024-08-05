@@ -22,7 +22,6 @@ const (
 	defaultIpTTL   = 30 * 24 * time.Hour // 30 days
 	ipChanBuffSize = 45                  // number of ips that can be buffered unto the channel
 	ipBuffSize     = 8192                // number of ip queries that can be queued in the ipQueue
-	ipApiEndpoint  = "http://ip-api.com/json/{__ip__}?fields=status,continent,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,isp,org,as,asname,mobile,proxy,hosting,query"
 	minIterTime    = 100 * time.Millisecond
 )
 
@@ -45,12 +44,15 @@ type IPLocator struct {
 	// dbClient
 	dbClient PostgresDBService
 
+	// API url
+	IPAPIUrl string
+
 	ipQueue *ipQueue
 	// control variables for IP-API request
 	apiCalls *int32
 }
 
-func NewIPLocator(ctx context.Context, dbCli PostgresDBService) *IPLocator {
+func NewIPLocator(ctx context.Context, dbCli PostgresDBService, IPAPIUrl string) *IPLocator {
 	calls := int32(0)
 	return &IPLocator{
 		ctx:             ctx,
@@ -58,6 +60,7 @@ func NewIPLocator(ctx context.Context, dbCli PostgresDBService) *IPLocator {
 		dbClient:        dbCli,
 		apiCalls:        &calls,
 		ipQueue:         newIpQueue(ipBuffSize),
+		IPAPIUrl:        IPAPIUrl,
 	}
 }
 
@@ -204,20 +207,20 @@ func (ipLoc *IPLocator) Close() {
 
 func (ipLoc *IPLocator) locateIp(ip string) chan models.IPInfoResponse {
 	respC := make(chan models.IPInfoResponse)
-	go callIpApi(ip, respC)
+	go ipLoc.callApi(ip, respC)
 	return respC
 }
 
 // get location country and City from the multiaddress of the peer on the peerstore
-func callIpApi(ip string, respC chan models.IPInfoResponse) {
+func (ipLoc *IPLocator) callApi(ip string, respC chan models.IPInfoResponse) {
 	var IPInfoResponse models.IPInfoResponse
-	IPInfoResponse.IPInfo, IPInfoResponse.DelayTime, IPInfoResponse.AttemptsLeft, IPInfoResponse.Err = CallIpApi(ip)
+	IPInfoResponse.IPInfo, IPInfoResponse.DelayTime, IPInfoResponse.AttemptsLeft, IPInfoResponse.Err = ipLoc.CallApi(ip)
 	respC <- IPInfoResponse
 	// defer ^
 }
 
-func CallIpApi(ip string) (iPInfo models.IPInfo, delay time.Duration, attemptsLeft int, err error) {
-	url := strings.Replace(ipApiEndpoint, "{__ip__}", ip, 1)
+func (ipLoc *IPLocator) CallApi(ip string) (iPInfo models.IPInfo, delay time.Duration, attemptsLeft int, err error) {
+	url := strings.Replace(ipLoc.IPAPIUrl, "{__ip__}", ip, 1)
 
 	// Make the IP-APi request
 	resp, err := http.Get(url)
@@ -329,7 +332,6 @@ func (q *ipQueue) readItem() (string, error) {
 
 	return item, nil
 }
-
 
 func (q *ipQueue) len() int {
 	return len(q.ipList)

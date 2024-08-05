@@ -55,6 +55,10 @@ services:
       --metrics-ip=${METRICS_IP}
       --metrics-port=${METRICS_PORT}
       --dialers=${DIALERS}
+      --ip-api-url=${IP_API_URL}
+      --conn-timeout=${CONN_TIMEOUT}
+      --metrics-endpoint=${METRICS_ENDPOINT}
+      --snapshot-interval=${SNAPSHOT_INTERVAL}
     restart: unless-stopped
     depends_on:
       db:

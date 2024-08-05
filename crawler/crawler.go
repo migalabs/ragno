@@ -71,7 +71,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		return nil, err
 	}
 
-	IPLocator := apis.NewIPLocator(ctx, db)
+	IPLocator := apis.NewIPLocator(ctx, db, conf.IPAPIUrl)
 
 	crwl := &Crawler{
 		ctx:      ctx,
