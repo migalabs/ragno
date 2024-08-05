@@ -14,7 +14,6 @@ const (
 func (db *PostgresDBService) GetClientDistribution() (map[string]interface{}, error) {
 	log.Debug("fetching client distribution metrics")
 	cliDist := make(map[string]interface{}, 0)
-	fmt.Println("CliDist: ", cliDist)
 
 	rows, err := db.psqlPool.Query(
 		db.ctx,
@@ -345,59 +344,58 @@ func (db *PostgresDBService) GetIPDistribution() (map[string]interface{}, error)
 	return summary, nil
 }
 
-// No latency info
-// func (db *PostgresDBService) GetRTTDistribution() (map[string]interface{}, error) {
-// 	summary := make(map[string]interface{}, 0)
+func (db *PostgresDBService) GetRTTDistribution() (map[string]interface{}, error) {
+	summary := make(map[string]interface{}, 0)
 
-// 	rows, err := db.psqlPool.Query(
-// 		db.ctx,
-// 		`
-// 			SELECT
-// 				t.latency as latency_range,
-// 				count(*) as nodes
-// 			FROM (
-// 				SELECT
-// 					CASE
-// 						WHEN latency between 0 AND 100 THEN ' 0-100ms'
-// 						WHEN latency between 101 AND 200 THEN '101-200ms'
-// 						WHEN latency between 201 AND 300 THEN '201-300ms'
-// 						WHEN latency between 301 AND 400 THEN '301-400ms'
-// 						WHEN latency between 401 AND 500 THEN '401-500ms'
-// 						WHEN latency between 501 AND 600 THEN '501-600ms'
-// 						WHEN latency between 601 AND 700 THEN '601-700ms'
-// 						WHEN latency between 701 AND 800 THEN '701-800ms'
-// 						WHEN latency between 801 AND 900 THEN '801-900ms'
-// 						WHEN latency between 901 AND 1000 THEN '901-1000ms'
-// 						ELSE '+1s'
-// 					END as latency
-// 				FROM node_info
-// 				WHERE deprecated = false AND
-// 					client_name IS NOT NULL AND
-// 					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
-// 			) as t
-// 			GROUP BY t.latency
-// 			ORDER BY nodes DESC;
-// 		`,
-// 		LastActivityValidRange,
-// 	)
-// 	if err != nil {
-// 		return summary, err
-// 	}
+	rows, err := db.psqlPool.Query(
+		db.ctx,
+		`
+			SELECT
+				t.latency as latency_range,
+				count(*) as nodes
+			FROM (
+				SELECT
+					CASE
+						WHEN latency between 0 AND 100 THEN ' 0-100ms'
+						WHEN latency between 101 AND 200 THEN '101-200ms'
+						WHEN latency between 201 AND 300 THEN '201-300ms'
+						WHEN latency between 301 AND 400 THEN '301-400ms'
+						WHEN latency between 401 AND 500 THEN '401-500ms'
+						WHEN latency between 501 AND 600 THEN '501-600ms'
+						WHEN latency between 601 AND 700 THEN '601-700ms'
+						WHEN latency between 701 AND 800 THEN '701-800ms'
+						WHEN latency between 801 AND 900 THEN '801-900ms'
+						WHEN latency between 901 AND 1000 THEN '901-1000ms'
+						ELSE '+1s'
+					END as latency
+				FROM node_info
+				WHERE deprecated = false AND
+					client_name IS NOT NULL AND
+					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
+			) as t
+			GROUP BY t.latency
+			ORDER BY nodes DESC;
+		`,
+		LastActivityValidRange,
+	)
+	if err != nil {
+		return summary, err
+	}
 
-// 	for rows.Next() {
-// 		var rttRange string
-// 		var rttValue int
-// 		err = rows.Scan(
-// 			&rttRange,
-// 			&rttValue,
-// 		)
-// 		if err != nil {
-// 			return summary, err
-// 		}
-// 		summary[rttRange] = rttValue
-// 	}
-// 	return summary, nil
-// }
+	for rows.Next() {
+		var rttRange string
+		var rttValue int
+		err = rows.Scan(
+			&rttRange,
+			&rttValue,
+		)
+		if err != nil {
+			return summary, err
+		}
+		summary[rttRange] = rttValue
+	}
+	return summary, nil
+}
 
 func (db *PostgresDBService) GetDeprecatedNodes() (int, error) {
 	log.Debug("fetching deprecated node count")

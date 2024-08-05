@@ -182,7 +182,10 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 	connAttempt := models.NewConnectionAttempt(nodeID)
 	nInfo, _ := models.NewNodeInfo(nodeID, models.WithHostInfo(hInfo))
 
+	t := time.Now()
 	handshakeDetails, chainDetails, err := p.host.Connect(&hInfo)
+	RTT := time.Since(t)
+
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"node-id": nodeID.String(),
@@ -203,6 +206,7 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 		}).Info("successfull connection")
 		connAttempt.Error = ErrorNone
 		connAttempt.Status = models.SuccessfulConnection
+		connAttempt.Latency = RTT
 		nInfo.HandshakeDetails = handshakeDetails
 		nInfo.ChainDetails = chainDetails
 	}

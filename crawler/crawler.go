@@ -37,7 +37,7 @@ type Crawler struct {
 
 func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 	// create db crawler
-	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.Persisters)
+	db, err := db.ConnectToDB(ctx, conf.DbEndpoint, conf.Persisters, conf.SnapshotInterval)
 	if err != nil {
 		logrus.Error("Couldn't init DB")
 		return nil, err
@@ -99,6 +99,7 @@ func (c *Crawler) Run() error {
 	}
 	logrus.Info("Starting IP Locator")
 	c.IPLocator.Run()
+	logrus.Info("Starting metrics")
 	c.metrics.Start()
 	return c.peering.Run()
 }
@@ -119,6 +120,7 @@ func (c *Crawler) Close() {
 	// stop IPLocator
 	c.IPLocator.Close()
 	// stop metrics
+	logrus.Info("crawler: closing metrics")
 	c.metrics.Close()
 	logrus.Info("Ragno closing routine done! See you!")
 }

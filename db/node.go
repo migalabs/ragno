@@ -15,13 +15,15 @@ func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAtt
 	UPDATE node_info SET
 		last_tried=$2,
 		error=$3,
-		deprecated=$4
+		deprecated=$4,
+		latency=$5
 	WHERE node_id=$1;
 	`
 	args = append(args, attempt.ID.String())
 	args = append(args, attempt.Timestamp)
 	args = append(args, attempt.Error)
 	args = append(args, attempt.Deprecable)
+	args = append(args, attempt.Latency.Milliseconds())
 
 	return query, args
 }
