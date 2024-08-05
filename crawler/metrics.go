@@ -1,6 +1,9 @@
 package crawler
 
 import (
+	"fmt"
+
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cortze/ragno/pkg/metrics"
@@ -25,13 +28,13 @@ var (
 	},
 		[]string{"client_version"},
 	)
-	// GeoDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	// 	Namespace: moduleName,
-	// 	Name:      "geographical_distribution",
-	// 	Help:      "Number of peers from each country",
-	// },
-	// 	[]string{"country"},
-	// )
+	GeoDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: moduleName,
+		Name:      "geographical_distribution",
+		Help:      "Number of peers from each country",
+	},
+		[]string{"country"},
+	)
 	NodeDistribution = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "node_distribution",
@@ -56,13 +59,13 @@ var (
 	},
 		[]string{"arch"},
 	)
-	// HostedPeers = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	// 	Namespace: moduleName,
-	// 	Name:      "hosted_peers_distribution",
-	// 	Help:      "Distribution of nodes that are hosted on non-residential networks",
-	// },
-	// 	[]string{"ip_host"},
-	// )
+	HostedPeers = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: moduleName,
+		Name:      "hosted_peers_distribution",
+		Help:      "Distribution of nodes that are hosted on non-residential networks",
+	},
+		[]string{"ip_host"},
+	)
 	// RttDist = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	// 	Namespace: moduleName,
 	// 	Name:      "observed_rtt_distribution",
@@ -87,12 +90,12 @@ func (crawler *Crawler) GetMetrics() *metrics.MetricsModule {
 
 	metricsModule.AddMetric(crawler.GetClientDistributionMetrics())
 	metricsModule.AddMetric(crawler.versionDistributionMetrics())
-	// metricsModule.AddMetric(crawler.geoDistributionMetrics())
+	metricsModule.AddMetric(crawler.geoDistributionMetrics())
 	metricsModule.AddMetric(crawler.nodeDistributionMetrics())
 	metricsModule.AddMetric(crawler.deprecatedNodeMetrics())
 	metricsModule.AddMetric(crawler.getPeersOs())
 	metricsModule.AddMetric(crawler.getPeersArch())
-	// metricsModule.AddMetric(crawler.getHostedPeers())
+	metricsModule.AddMetric(crawler.getHostedPeers())
 	// metricsModule.AddMetric(crawler.getRTTDist())
 	metricsModule.AddMetric(crawler.getIPDist())
 	return (metricsModule)
@@ -144,29 +147,29 @@ func (c *Crawler) versionDistributionMetrics() *metrics.Metric {
 	return versDist
 }
 
-// func (c *Crawler) geoDistributionMetrics() *metrics.Metric {
-// 	initFn := func() error {
-// 		prometheus.MustRegister(GeoDistribution)
-// 		return nil
-// 	}
-// 	updateFn := func() (interface{}, error) {
-// 		summary, err := c.db.GetGeoDistribution()
-// 		if err != nil {
-// 			fmt.Println(errors.Wrap(err, "unable to get GeoDist"))
-// 			return nil, err
-// 		}
-// 		for country, cnt := range summary {
-// 			GeoDistribution.WithLabelValues(country).Set(float64(cnt.(int)))
-// 		}
-// 		return summary, nil
-// 	}
-// 	versDist := metrics.NewMetric(
-// 		"geographical_distribution",
-// 		initFn,
-// 		updateFn,
-// 	)
-// 	return versDist
-// }
+func (c *Crawler) geoDistributionMetrics() *metrics.Metric {
+	initFn := func() error {
+		prometheus.MustRegister(GeoDistribution)
+		return nil
+	}
+	updateFn := func() (interface{}, error) {
+		summary, err := c.db.GetGeoDistribution()
+		if err != nil {
+			fmt.Println(errors.Wrap(err, "unable to get GeoDist"))
+			return nil, err
+		}
+		for country, cnt := range summary {
+			GeoDistribution.WithLabelValues(country).Set(float64(cnt.(int)))
+		}
+		return summary, nil
+	}
+	versDist := metrics.NewMetric(
+		"geographical_distribution",
+		initFn,
+		updateFn,
+	)
+	return versDist
+}
 
 func (c *Crawler) nodeDistributionMetrics() *metrics.Metric {
 	initFn := func() error {
@@ -258,28 +261,28 @@ func (c *Crawler) getPeersArch() *metrics.Metric {
 	return archMetr
 }
 
-// func (c *Crawler) getHostedPeers() *metrics.Metric {
-// 	initFn := func() error {
-// 		prometheus.MustRegister(HostedPeers)
-// 		return nil
-// 	}
-// 	updateFn := func() (interface{}, error) {
-// 		ipSummary, err := c.db.GetHostingDistribution()
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		for key, val := range ipSummary {
-// 			HostedPeers.WithLabelValues(key).Set(float64(val.(int)))
-// 		}
-// 		return ipSummary, nil
-// 	}
-// 	ipHosting := metrics.NewMetric(
-// 		"hosted_peer_distribution",
-// 		initFn,
-// 		updateFn,
-// 	)
-// 	return ipHosting
-// }
+func (c *Crawler) getHostedPeers() *metrics.Metric {
+	initFn := func() error {
+		prometheus.MustRegister(HostedPeers)
+		return nil
+	}
+	updateFn := func() (interface{}, error) {
+		ipSummary, err := c.db.GetHostingDistribution()
+		if err != nil {
+			return nil, err
+		}
+		for key, val := range ipSummary {
+			HostedPeers.WithLabelValues(key).Set(float64(val.(int)))
+		}
+		return ipSummary, nil
+	}
+	ipHosting := metrics.NewMetric(
+		"hosted_peer_distribution",
+		initFn,
+		updateFn,
+	)
+	return ipHosting
+}
 
 // func (c *Crawler) getRTTDist() *metrics.Metric {
 // 	initFn := func() error {

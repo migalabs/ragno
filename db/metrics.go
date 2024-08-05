@@ -95,50 +95,49 @@ func (db *PostgresDBService) GetVersionDistribution() (map[string]interface{}, e
 	return verDist, nil
 }
 
-// No country code info
-// // Basic call over the whole list of non-deprecated peers
-// func (db *PostgresDBService) GetGeoDistribution() (map[string]interface{}, error) {
-// 	log.Debug("fetching client distribution metrics")
-// 	geoDist := make(map[string]interface{}, 0)
+// Basic call over the whole list of non-deprecated peers
+func (db *PostgresDBService) GetGeoDistribution() (map[string]interface{}, error) {
+	log.Debug("fetching client distribution metrics")
+	geoDist := make(map[string]interface{}, 0)
 
-// 	rows, err := db.psqlPool.Query(
-// 		db.ctx,
-// 		`
-// 			SELECT
-// 				aux.country_code as country_code,
-// 				count(aux.country_code) as cnt
-// 			FROM (
-// 				SELECT node_info.node_id, ips.ip
-// 				FROM node_info
-// 				RIGHT JOIN ips on node_info.ip = ips.ip
-// 				WHERE first_connected IS NOT NULL AND
-// 					deprecated = 'false' AND
-// 					client_name IS NOT NULL AND
-// 					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
-// 			) as aux
-// 			GROUP BY country_code
-// 			ORDER BY cnt DESC;
-// 		`,
-// 		LastActivityValidRange,
-// 	)
-// 	// make sure we close the rows and we free the connection/session
-// 	defer rows.Close()
-// 	if err != nil {
-// 		return geoDist, errors.Wrap(err, "unable to fetch client distribution")
-// 	}
+	rows, err := db.psqlPool.Query(
+		db.ctx,
+		`
+			SELECT
+				aux.country_code as country_code,
+				count(aux.country_code) as cnt
+			FROM (
+				SELECT node_info.node_id, ip_info.ip, ip_info.country_code
+				FROM node_info
+				RIGHT JOIN ip_info on node_info.ip = ip_info.ip
+				WHERE first_connected IS NOT NULL AND
+					deprecated = 'false' AND
+					client_name IS NOT NULL AND
+					last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
+			) as aux
+			GROUP BY country_code
+			ORDER BY cnt DESC;
+		`,
+		LastActivityValidRange,
+	)
+	// make sure we close the rows and we free the connection/session
+	defer rows.Close()
+	if err != nil {
+		return geoDist, errors.Wrap(err, "unable to fetch client distribution")
+	}
 
-// 	for rows.Next() {
-// 		var country string
-// 		var count int
-// 		err = rows.Scan(&country, &count)
-// 		if err != nil {
-// 			return geoDist, errors.Wrap(err, "unable to parse fetch client distribution")
-// 		}
-// 		geoDist[country] = count
-// 	}
+	for rows.Next() {
+		var country string
+		var count int
+		err = rows.Scan(&country, &count)
+		if err != nil {
+			return geoDist, errors.Wrap(err, "unable to parse fetch client distribution")
+		}
+		geoDist[country] = count
+	}
 
-// 	return geoDist, nil
-// }
+	return geoDist, nil
+}
 
 func (db *PostgresDBService) GetOsDistribution() (map[string]interface{}, error) {
 	summary := make(map[string]interface{}, 0)
@@ -206,102 +205,101 @@ func (db *PostgresDBService) GetArchDistribution() (map[string]interface{}, erro
 	return summary, nil
 }
 
-// No mobile IP info
-// func (db *PostgresDBService) GetHostingDistribution() (map[string]interface{}, error) {
-// 	summary := make(map[string]interface{})
-// 	// get the number of mobile hosts
-// 	var mobile int
-// 	err := db.psqlPool.QueryRow(
-// 		db.ctx,
-// 		`
-// 		SELECT
-// 			count(aux.mobile) as mobile
-// 		FROM (
-// 			SELECT
-// 				pi.peer_id,
-// 				pi.attempted,
-// 				pi.client_name,
-// 				pi.deprecated,
-// 				pi.ip,
-// 				ips.mobile
-// 			FROM peer_info as pi
-// 			INNER JOIN ips ON pi.ip=ips.ip
-// 			WHERE pi.deprecated='false' and
-// 			      attempted = 'true' and
-// 			      client_name IS NOT NULL and
-// 			      ips.mobile='true' and
-// 			      to_timestamp(last_activity) > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
-// 		) as aux
-// 		`,
-// 		LastActivityValidRange,
-// 	).Scan(&mobile)
-// 	if err != nil {
-// 		return summary, err
-// 	}
-// 	summary["mobile_ips"] = mobile
+func (db *PostgresDBService) GetHostingDistribution() (map[string]interface{}, error) {
+	summary := make(map[string]interface{})
+	// get the number of mobile hosts
+	var mobile int
+	err := db.psqlPool.QueryRow(
+		db.ctx,
+		`
+		SELECT
+			count(aux.mobile) as mobile
+		FROM (
+			SELECT
+				ni.node_id,
+				ni.first_connected,
+				ni.client_name,
+				ni.deprecated,
+				ni.ip,
+				ip_info.mobile
+			FROM node_info as ni
+			INNER JOIN ip_info ON ni.ip=ip_info.ip
+			WHERE ni.deprecated='false' and
+			      first_connected IS NOT NULL AND
+			      client_name IS NOT NULL and
+			      ip_info.mobile='true' and
+			      last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
+		) as aux
+		`,
+		LastActivityValidRange,
+	).Scan(&mobile)
+	if err != nil {
+		return summary, err
+	}
+	summary["mobile_ip_info"] = mobile
 
-// 	// get the number of proxy peers
-// 	var proxy int
-// 	err = db.psqlPool.QueryRow(
-// 		db.ctx,
-// 		`
-// 		SELECT
-// 			count(aux.proxy) as under_proxy
-// 		FROM (
-// 			SELECT
-// 				pi.peer_id,
-// 				pi.attempted,
-// 				pi.client_name,
-// 				pi.deprecated,
-// 				pi.ip,
-// 				ips.proxy
-// 			FROM peer_info as pi
-// 			INNER JOIN ips ON pi.ip=ips.ip
-// 			WHERE pi.deprecated='false' and
-// 			      attempted = 'true' and
-// 			      client_name IS NOT NULL and ips.proxy='true' and
-// 			      to_timestamp(last_activity) > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
-// 		) as aux
-// 		`,
-// 		LastActivityValidRange,
-// 	).Scan(&proxy)
-// 	if err != nil {
-// 		return summary, err
-// 	}
-// 	summary["under_proxy"] = proxy
+	// get the number of proxy peers
+	var proxy int
+	err = db.psqlPool.QueryRow(
+		db.ctx,
+		`
+		SELECT
+			count(aux.proxy) as under_proxy
+		FROM (
+			SELECT
+				ni.node_id,
+				ni.first_connected,
+				ni.client_name,
+				ni.deprecated,
+				ni.ip,
+				ip_info.proxy
+			FROM node_info as ni
+			INNER JOIN ip_info ON ni.ip=ip_info.ip
+			WHERE ni.deprecated='false' and
+			      first_connected IS NOT NULL AND
+			      client_name IS NOT NULL and ip_info.proxy='true' and
+			      last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
+		) as aux
+		`,
+		LastActivityValidRange,
+	).Scan(&proxy)
+	if err != nil {
+		return summary, err
+	}
+	summary["under_proxy"] = proxy
 
-// 	// get the number of hosted IPs
-// 	var hosted int
-// 	err = db.psqlPool.QueryRow(
-// 		db.ctx,
-// 		`
-// 		SELECT
-// 			count(aux.hosting) as hosted_ips
-// 		FROM (
-// 			SELECT
-// 				pi.peer_id,
-// 				pi.attempted,
-// 				pi.client_name,
-// 				pi.deprecated,
-// 				pi.ip,
-// 				ips.hosting
-// 			FROM peer_info as pi
-// 			INNER JOIN ips ON pi.ip=ips.ip
-// 			WHERE pi.deprecated='false' and
-// 			      attempted = 'true' and
-// 			      client_name IS NOT NULL and
-// 			      ips.hosting='true' and
-// 			      to_timestamp(last_activity) > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
-// 		) as aux
-// 		`,
-// 		LastActivityValidRange,
-// 	).Scan(&hosted)
-// 	if err != nil {
-// 		return summary, err
-// 	}
-// 	summary["hosted_ips"] = hosted
-// 	return summary, nil
-// }
+	// get the number of hosted IP_info
+	var hosted int
+	err = db.psqlPool.QueryRow(
+		db.ctx,
+		`
+		SELECT
+			count(aux.hosting) as hosted_ip_info
+		FROM (
+			SELECT
+				ni.node_id,
+				ni.first_connected,
+				ni.client_name,
+				ni.deprecated,
+				ni.ip,
+				ip_info.hosting
+			FROM node_info as ni
+			INNER JOIN ip_info ON ni.ip=ip_info.ip
+			WHERE ni.deprecated='false' and
+			      first_connected IS NOT NULL AND
+			      client_name IS NOT NULL and
+			      ip_info.hosting='true' and
+			      last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
+		) as aux
+		`,
+		LastActivityValidRange,
+	).Scan(&hosted)
+	if err != nil {
+		return summary, err
+	}
+	summary["hosted_ip_info"] = hosted
+	return summary, nil
+}
 
 func (db *PostgresDBService) GetIPDistribution() (map[string]interface{}, error) {
 	summary := make(map[string]interface{}, 0)
@@ -311,7 +309,7 @@ func (db *PostgresDBService) GetIPDistribution() (map[string]interface{}, error)
 		`
 			SELECT
 				nodes as nodes_per_ip,
-				count(t.nodes) as number_of_ips
+				count(t.nodes) as number_of_ip_info
 			FROM (
 				SELECT
 					ip,
@@ -324,7 +322,7 @@ func (db *PostgresDBService) GetIPDistribution() (map[string]interface{}, error)
 				ORDER BY nodes DESC
 			) as t
 			GROUP BY nodes
-			ORDER BY number_of_ips DESC;
+			ORDER BY number_of_ip_info DESC;
 		`,
 		LastActivityValidRange,
 	)
@@ -334,15 +332,15 @@ func (db *PostgresDBService) GetIPDistribution() (map[string]interface{}, error)
 
 	for rows.Next() {
 		var nodesPerIP int
-		var ips int
+		var ip_info int
 		err = rows.Scan(
 			&nodesPerIP,
-			&ips,
+			&ip_info,
 		)
 		if err != nil {
 			return summary, err
 		}
-		summary[fmt.Sprintf("%d", nodesPerIP)] = ips
+		summary[fmt.Sprintf("%d", nodesPerIP)] = ip_info
 	}
 	return summary, nil
 }
