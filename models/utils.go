@@ -3,10 +3,26 @@ package models
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"net"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
+
+var PrivateIPNetworks = []net.IPNet{
+	net.IPNet{
+		IP:   net.ParseIP("10.0.0.0"),
+		Mask: net.CIDRMask(8, 32),
+	},
+	net.IPNet{
+		IP:   net.ParseIP("172.16.0.0"),
+		Mask: net.CIDRMask(12, 32),
+	},
+	net.IPNet{
+		IP:   net.ParseIP("192.168.0.0"),
+		Mask: net.CIDRMask(16, 32),
+	},
+}
 
 func ParseStringToEnode(enr string) *enode.Node {
 	// parse the Enr
@@ -44,4 +60,13 @@ func StringToPubkey(str string) (*ecdsa.PublicKey, error) {
 		return nil, err
 	}
 	return pubkey, nil
+}
+
+func IsIPPublic(ip net.IP) bool {
+	for _, ipNet := range PrivateIPNetworks {
+		if ipNet.Contains(ip) || ip.IsLoopback() || ip.IsUnspecified() {
+			return false
+		}
+	}
+	return true
 }

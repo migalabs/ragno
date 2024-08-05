@@ -20,6 +20,7 @@ var (
 	DefaultConcurrentPersisters = 2
 	DefaultConnTimeout          = 30 * time.Second
 	DefaultSnapshotInterval     = 12 * time.Hour
+	DefaultIPAPIUrl             = "http://ip-api.com/json/{__ip__}?fields=status,continent,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,isp,org,as,asname,mobile,proxy,hosting,query"
 )
 
 type CrawlerRunConf struct {
@@ -34,6 +35,7 @@ type CrawlerRunConf struct {
 	Persisters       int           `yaml:"persisters"`
 	ConnTimeout      time.Duration `yaml:"conn-timeout"`
 	SnapshotInterval time.Duration `yaml:"snapshot-interval"`
+	IPAPIUrl         string        `yaml:"snapshot-interval"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
@@ -49,6 +51,7 @@ func NewDefaultRun() *CrawlerRunConf {
 		Persisters:       DefaultConcurrentPersisters,
 		ConnTimeout:      DefaultConnTimeout,
 		SnapshotInterval: DefaultSnapshotInterval,
+		IPAPIUrl:         DefaultIPAPIUrl,
 	}
 }
 
@@ -105,6 +108,9 @@ func (c *CrawlerRunConf) Apply(ctx *cli.Context) error {
 	}
 	if ctx.IsSet("snapshot-interval") {
 		c.SnapshotInterval = c.parseDurationVar("snapshot-interval", DefaultSnapshotInterval, ctx)
+	}
+	if ctx.IsSet("ip-api-url") {
+		c.IPAPIUrl = ctx.String("ip-api-url")
 	}
 	return nil
 }

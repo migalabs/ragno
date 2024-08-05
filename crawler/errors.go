@@ -1,13 +1,14 @@
 package crawler
 
 import (
-	"github.com/sirupsen/logrus"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
 	ErrorNone    = "none"
-	ErrorUnknown = "uknonwn"
+	ErrorUnknown = "unknown"
 
 	ErrorEOF                  = "eof"
 	ErrorDisconnectRequested  = "disconnect_requested"

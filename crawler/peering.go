@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cortze/ragno/db"
 	"github.com/cortze/ragno/models"
+	"github.com/cortze/ragno/pkg/apis"
 )
 
 const (
@@ -30,12 +32,16 @@ type Peering struct {
 	dialers         int
 
 	// necessary services
-	host    *Host
-	db      *db.PostgresDBService
-	nodeSet *NodeOrderedSet
+	host      *Host
+	db        *db.PostgresDBService
+	nodeSet   *NodeOrderedSet
+	IPLocator *apis.IPLocator
 }
 
-func NewPeeringService(ctx context.Context, h *Host, database *db.PostgresDBService, dialers int) *Peering {
+func NewPeeringService(
+	ctx context.Context, h *Host, database *db.PostgresDBService, dialers int,
+	IPLocator *apis.IPLocator,
+) *Peering {
 	return &Peering{
 		ctx:             ctx,
 		dialersDoneC:    make(chan struct{}),
@@ -45,6 +51,7 @@ func NewPeeringService(ctx context.Context, h *Host, database *db.PostgresDBServ
 		db:              database,
 		nodeSet:         NewNodeOrderedSet(),
 		dialers:         dialers,
+		IPLocator:       IPLocator,
 	}
 }
 
@@ -164,6 +171,8 @@ func (p *Peering) Connect(hInfo models.HostInfo) {
 	p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, &connAttempt, sameNetwork)
 	// persist the node with all the necessary info
 	p.db.PersistNodeInfo(connAttempt, nodeInfo, sameNetwork)
+	// If the current node's IP is public, locate IP info and persist if valid
+	p.requestIPInfo(hInfo.ID.String(), hInfo.IP)
 }
 
 // connect offers the low-level connection with the remote peer
@@ -202,6 +211,15 @@ func (p *Peering) connect(hInfo models.HostInfo) (models.ConnectionAttempt, mode
 		nInfo.ChainDetails = chainDetails
 	}
 	return connAttempt, *nInfo, (chainDetails.NetworkID == p.host.localChainStatus.NetworkID)
+}
+
+func (p *Peering) requestIPInfo(nodeID string, IP string) {
+	if models.IsIPPublic(net.ParseIP(IP)) {
+		// get location from the received peer
+		p.IPLocator.LocateIP(IP)
+	} else {
+		logrus.Warnf("new peer %s had a non-public IP %s", nodeID, IP)
+	}
 }
 
 // --- Ordered Set ---

@@ -27,7 +27,7 @@ var RunCommand = &cli.Command{
 		&cli.StringFlag{
 			Name:        "db-endpoint",
 			Usage:       "Endpoint of the database that where the results of the crawl will be stored (needs to be initialized from before)",
-			EnvVars:     []string{"DB_ENDPOINT"},
+			EnvVars:     []string{"DB_URL"},
 			DefaultText: crawler.DefaultDBEndpoint,
 		},
 		&cli.StringFlag{
@@ -80,6 +80,12 @@ var RunCommand = &cli.Command{
 			Usage:   "Time string for how often active_peers snapshots are taken",
 			Aliases: []string{"si"},
 			EnvVars: []string{"SNAPSHOT_INTERVAL"},
+		},
+		&cli.StringFlag{
+			Name:    "ip-api-url",
+			Usage:   "Full template URL for IP API querying",
+			Aliases: []string{"ipapi"},
+			EnvVars: []string{"IP_API_URL"},
 		},
 	},
 }
