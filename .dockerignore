@@ -1,5 +1,5 @@
 # To keep the image of the tool clean, we will ignore the example folder
-ragno/
+app-data/
 LICENSE
 README.md
 doc/
