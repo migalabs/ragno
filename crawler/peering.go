@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DeprecationMargin = 3 * time.Hour
+	DeprecationMargin = 48 * time.Hour
 	InitDelay         = 2 * time.Second
 )
 
