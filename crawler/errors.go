@@ -43,7 +43,7 @@ var KnownErrors = map[string]string{
 func ParseConnError(err error) string {
 	parsedError := ErrorUnknown
 	for cleanErr, containable := range KnownErrors {
-		if strings.ContainsAny(err.Error(), containable) {
+		if strings.Contains(err.Error(), containable) {
 			parsedError = cleanErr
 			break
 		}
