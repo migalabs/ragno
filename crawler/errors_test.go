@@ -40,8 +40,13 @@ func TestParseConnError(t *testing.T) {
 		},
 		{
 			name:     "Test Bad Handshake Error",
-			input:    errors.New("bad handshake: &ethtest.Error{err:(*errors.errorString)"),
+			input:    errors.New("bad handshake: "),
 			expected: ErrorBadHandshake,
+		},
+		{
+			name:     "Test Bad Handshake Disconnect Error",
+			input:    errors.New("bad status handshake disconnect: "),
+			expected: ErrorBadHandshakeDisconnect,
 		},
 		{
 			name:     "Test Bad Handshake Code 2 Error",
@@ -56,7 +61,7 @@ func TestParseConnError(t *testing.T) {
 		{
 			name:     "Test Snappy Corrupted Input Error",
 			input:    errors.New("snappy: corrupt input"),
-			expected: ErrorSnappyCorryptedInput,
+			expected: ErrorSnappyCorruptedInput,
 		},
 		{
 			name:     "Test Subprotocol Error",
@@ -87,6 +92,21 @@ func TestParseConnError(t *testing.T) {
 			name:     "Test Unknown Error",
 			input:    errors.New("something something..."),
 			expected: ErrorUnknown,
+		},
+		{
+			name:     "Test I/O Timeout Error",
+			input:    errors.New("i/o timeout"),
+			expected: ErrorIOTimeout,
+		},
+		{
+			name:     "Test No Route to Host Error",
+			input:    errors.New("connect: no route to host"),
+			expected: ErrorNoRouteToHost,
+		},
+		{
+			name:     "Test Eth Protocols Negotiation Error",
+			input:    errors.New("eth protocols negotiation"),
+			expected: ErrorProtocolNegotiation,
 		},
 	}
 
