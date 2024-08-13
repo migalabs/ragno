@@ -60,6 +60,7 @@ services:
       --conn-timeout=${CONN_TIMEOUT}
       --metrics-endpoint=${METRICS_ENDPOINT}
       --snapshot-interval=${SNAPSHOT_INTERVAL}
+      --deprecation-time=${DEPRECATION_TIME}
     restart: unless-stopped
     depends_on:
       db:

@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	DeprecationMargin = 3 * time.Hour
 	InitDelay         = 2 * time.Second
 )
 
@@ -30,6 +29,7 @@ type Peering struct {
 	orchersterDoneC chan struct{}
 	dialC           chan models.HostInfo
 	dialers         int
+	deprecationTime time.Duration
 
 	// necessary services
 	host      *Host
@@ -40,7 +40,7 @@ type Peering struct {
 
 func NewPeeringService(
 	ctx context.Context, h *Host, database *db.PostgresDBService, dialers int,
-	IPLocator *apis.IPLocator,
+	deprecationTime time.Duration, IPLocator *apis.IPLocator,
 ) *Peering {
 	return &Peering{
 		ctx:             ctx,
@@ -51,6 +51,7 @@ func NewPeeringService(
 		db:              database,
 		nodeSet:         NewNodeOrderedSet(),
 		dialers:         dialers,
+		deprecationTime: deprecationTime,
 		IPLocator:       IPLocator,
 	}
 }
@@ -168,7 +169,7 @@ func (p *Peering) Connect(hInfo models.HostInfo) {
 	// try to connect to the peer
 	connAttempt, nodeInfo, sameNetwork := p.connect(hInfo)
 	// handle the result (check if it's deprecable) and update local perception
-	p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, &connAttempt, sameNetwork)
+	p.nodeSet.UpdateNodeFromConnAttempt(hInfo.ID, &connAttempt, sameNetwork, p.deprecationTime)
 	// persist the node with all the necessary info
 	p.db.PersistNodeInfo(connAttempt, nodeInfo, sameNetwork)
 	// If the current node's IP is public, locate IP info and persist if valid
@@ -305,7 +306,9 @@ func (s *NodeOrderedSet) RemoveNode(nodeID enode.ID) {
 }
 
 func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
-	nodeID enode.ID, connAttempt *models.ConnectionAttempt, sameNetwork bool) {
+	nodeID enode.ID, connAttempt *models.ConnectionAttempt, sameNetwork bool,
+	deprecationTime time.Duration,
+	) {
 	logEntry := logrus.WithFields(logrus.Fields{
 		"nodeID":  nodeID.String(),
 		"attempt": connAttempt.Status.String(),
@@ -335,7 +338,7 @@ func (s *NodeOrderedSet) UpdateNodeFromConnAttempt(
 		if connAttempt.Deprecable {
 			s.RemoveNode(nodeID)
 		} else {
-			node.AddNegativeDial(connAttempt.Timestamp, ParseStateFromError(connAttempt.Error))
+			node.AddNegativeDial(connAttempt.Timestamp, deprecationTime, ParseStateFromError(connAttempt.Error))
 		}
 
 	default:
@@ -462,11 +465,11 @@ func (n *QueuedNode) AddPositiveDial(baseT time.Time) {
 	n.deprecationTime = time.Time{}
 }
 
-func (n *QueuedNode) AddNegativeDial(baseT time.Time, state DialState) {
+func (n *QueuedNode) AddNegativeDial(baseT time.Time, deprecationTime time.Duration, state DialState) {
 	logrus.Trace("adding negative dial attempt to node", n.hostInfo.ID.String())
 	n.state = state
 	n.nextDialTime = baseT.Add(state.DelayFromState())
 	if n.deprecationTime.IsZero() {
-		n.deprecationTime = baseT.Add(DeprecationMargin)
+		n.deprecationTime = baseT.Add(deprecationTime)
 	}
 }
