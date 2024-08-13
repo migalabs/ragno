@@ -77,7 +77,7 @@ func NewCrawler(ctx context.Context, conf CrawlerRunConf) (*Crawler, error) {
 		ctx:      ctx,
 		doneC:    make(chan struct{}, 1),
 		host:     host,
-		peering:  NewPeeringService(ctx, host, db, conf.Dialers, IPLocator),
+		peering:  NewPeeringService(ctx, host, db, conf.Dialers, conf.DeprecationTime, IPLocator),
 		db:       db,
 		peerDisc: discvService,
 		metrics:  prometheusMetrics,
