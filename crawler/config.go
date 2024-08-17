@@ -10,7 +10,7 @@ import (
 var (
 	// crawler host related metrics
 	DefaultLogLevel             = "info"
-	DefaultDBEndpoint           = "postgresql://user:password@localhost:5432/ragnodb"
+	DefaultDBEndpoint           = "postgresql://user:password@localhost:5440"
 	DefaultHostIP               = "0.0.0.0"
 	DefaultHostPort             = 9050
 	DefaultMetricsIP            = "localhost"
@@ -19,7 +19,7 @@ var (
 	DefaultConcurrentDialers    = 150
 	DefaultConcurrentPersisters = 2
 	DefaultConnTimeout          = 30 * time.Second
-	DefaultSnapshotInterval     = 12 * time.Hour
+	DefaultSnapshotInterval     = 30 * time.Minute
 	DefaultIPAPIUrl             = "http://ip-api.com/json/{__ip__}?fields=status,continent,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,isp,org,as,asname,mobile,proxy,hosting,query"
 	DefaultDeprecationTime      = 48 * time.Hour
 )
