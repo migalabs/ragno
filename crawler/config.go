@@ -35,7 +35,7 @@ type CrawlerRunConf struct {
 	Persisters       int           `yaml:"persisters"`
 	ConnTimeout      time.Duration `yaml:"conn-timeout"`
 	SnapshotInterval time.Duration `yaml:"snapshot-interval"`
-	IPAPIUrl         string        `yaml:"snapshot-interval"`
+	IPAPIUrl         string        `yaml:"ip-api-url"`
 }
 
 func NewDefaultRun() *CrawlerRunConf {
