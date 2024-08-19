@@ -87,6 +87,12 @@ var RunCommand = &cli.Command{
 			Aliases: []string{"ipapi"},
 			EnvVars: []string{"IP_API_URL"},
 		},
+		&cli.StringFlag{
+			Name:    "deprecation-time",
+			Usage:   "Time threshold for deprecating a node if no connection attempts were succesful",
+			Aliases: []string{"dt"},
+			EnvVars: []string{"DEPRECATION_TIME"},
+		},
 	},
 }
 

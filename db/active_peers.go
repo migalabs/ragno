@@ -19,6 +19,7 @@ func (DB *PostgresDBService) getActivePeers() ([]int, error) {
 		FROM node_info
 		WHERE deprecated = 'false' AND
 		first_connected IS NOT NULL AND
+		network_id = 1 AND
 		client_name IS NOT NULL AND
 		last_connected > CURRENT_TIMESTAMP - ($1 * INTERVAL '1 DAY')
 		`,

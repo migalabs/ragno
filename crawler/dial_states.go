@@ -57,10 +57,11 @@ func ParseStateFromError(err string) (state DialState) {
 	case ErrorNone:
 		state = PossitiveState
 	case ErrorEOF, ErrorDisconnectRequested, ErrorDecodeRLPdisconnect,
-		ErrorBadHandshake, ErrorBadHandshake2, ErrorSnappyCorryptedInput,
-		ErrorConnectionReset, ErrorConnectionRefused, ErrorTooManyPeers:
+		ErrorBadHandshake, ErrorBadHandshake2, ErrorSnappyCorruptedInput,
+		ErrorConnectionReset, ErrorConnectionRefused, ErrorTooManyPeers,
+		ErrorNoRouteToHost, ErrorProtocolNegotiation, ErrorBadHandshakeDisconnect:
 		state = NegativeWithHopeState
-	case ErrorTimeout, ErrorUselessPeer:
+	case ErrorTimeout, ErrorIOTimeout, ErrorUselessPeer:
 		state = NegativeWithoutHopeState
 	default:
 		state = NegativeWithHopeState
