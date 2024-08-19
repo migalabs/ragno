@@ -62,7 +62,7 @@ The containers are configured with a `.env` file. See `.env.example` for example
 `docker compose up prometheus`
 
 # Prometheus
-[Prometheus]("https://prometheus.io/docs/introduction/overview/) is what is used to gather metrics periodically from the recollected data. By default, they can be viewed at `:9070/metrics`.
+[Prometheus]("https://prometheus.io/docs/introduction/overview/") is what is used to gather metrics periodically from the recollected data. By default, they can be viewed at `:9070/metrics`.
 
 #### Current available metrics:
 - Client Distribution
@@ -77,7 +77,7 @@ The containers are configured with a `.env` file. See `.env.example` for example
 - IPs Distribution
 
 # Migrate
-To move between database versions, use [go migrate]("https://github.com/golang-migrate/migrate/).
+To move between database versions, use [go migrate]("https://github.com/golang-migrate/migrate/").
 
 In case of any database conflict, you can still force a specific version:
 `migrate -path / -database "postgresql://username:secretkey@localhost:5432/database_name?sslmode=disable" force <version>`
