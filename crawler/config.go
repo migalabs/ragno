@@ -19,7 +19,7 @@ var (
 	DefaultConcurrentDialers    = 150
 	DefaultConcurrentPersisters = 2
 	DefaultConnTimeout          = 30 * time.Second
-	DefaultSnapshotInterval     = 12 * time.Hour
+	DefaultSnapshotInterval     = 30 * time.Minute
 	DefaultIPAPIUrl             = "http://ip-api.com/json/{__ip__}?fields=status,continent,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,isp,org,as,asname,mobile,proxy,hosting,query"
 	DefaultDeprecationTime      = 48 * time.Hour
 )
