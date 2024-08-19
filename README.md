@@ -80,9 +80,11 @@ The containers are configured with a `.env` file. See `.env.example` for example
 To move between database versions, use [go migrate](https://github.com/golang-migrate/migrate/).
 
 In case of any database conflict, you can still force a specific version:
+
 `migrate -path / -database "postgresql://username:secretkey@localhost:5432/database_name?sslmode=disable" force <version>`
 
 If specific upgrades or downgrades need to be done manually, one could do this with:
+
 `migrate -path database/migration/ -database "postgresql://user:password@localhost:5432/database_name?sslmode=disable" -verbose up`
 
 
