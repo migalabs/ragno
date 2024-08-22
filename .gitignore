@@ -5,6 +5,9 @@
 build/
 app-data/*_db
 
+# Prometheus config
+prometheus/prometheus.yml
+
 # The IDE folder
 .idea
 
