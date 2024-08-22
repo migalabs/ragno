@@ -9,4 +9,4 @@ rule_files:
 scrape_configs:
   - job_name: 'crawler'
     static_configs:
-      - targets: ['eth_crawler:9085']
+      - targets: ['ragno:5080']
