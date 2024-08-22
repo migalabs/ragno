@@ -53,12 +53,14 @@ OPTIONS:
 ```
 
 # Docker
-The containers are configured with a `.env` file. See `.env.example` for examples on the parameters.
-
 #### Build and run the database alongside ragno:
+These containers are configured with a `.env` file. See `.env.example` for examples on the parameters.
+
 `docker compose up db ragno`
 
 #### Build and run Prometheus metrics database (exposed at `:9090`):
+This container is configured with a `./prometheus/prometheus.yml` file. View `./prometheus/prometheus.yml.example` for a template.
+
 `docker compose up prometheus`
 
 # Prometheus
