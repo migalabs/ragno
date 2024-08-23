@@ -63,6 +63,9 @@ This container is configured with a `./prometheus/prometheus.yml` file. View `./
 
 `docker compose up prometheus`
 
+If any container fails to start, make sure you granted permissions to the data folder with:
+`sudo chmod 777 ./app-data/*_db`
+
 # Prometheus
 [Prometheus](https://prometheus.io/docs/introduction/overview/) is what is used to gather metrics periodically from the recollected data. By default, they can be viewed at `:9070/metrics`.
 
