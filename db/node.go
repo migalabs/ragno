@@ -72,6 +72,7 @@ func (d *PostgresDBService) upsertNodeInfo(nInfo models.NodeInfo, sameNetwork bo
 	ON CONFLICT (node_id) DO UPDATE SET
 		ip = $3,
 		tcp = $4,
+		first_connected = COALESCE(node_info.first_connected, $5),
 		last_connected = $6,
 		raw_user_agent = $7,
 		client_name = $8,
