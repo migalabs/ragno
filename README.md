@@ -67,16 +67,19 @@ This container is configured with a `./prometheus/prometheus.yml` file. View `./
 [Prometheus]("https://prometheus.io/docs/introduction/overview/") is what is used to gather metrics periodically from the recollected data. By default, they can be viewed at `:9070/metrics`.
 
 #### Current available metrics:
-- Client Distribution
-- Client Version Distribution
-- Geographical Distribution
-- Node Distribution
-- Deprecated Nodes
-- OS Distribution
-- Architechture Distribution
-- Hosting Type Distribution
-- RTT/Latency Distribution
-- IPs Distribution
+
+| name                                       | description
+|--------------------------------------------|---------------------------------------------------------
+| `crawler_observed_client_distribution`     | Number of nodes using the clients seen.
+| `crawler_client_version_distribution`      | Number of nodes from each of the client's versions.
+| `crawler_geographical_distribution`        | Number of nodes from each country.
+| `crawler_node_distribution`                | Total number of nodes.
+| `crawler_deprecated_nodes`                 | Total number of deprecated nodes.
+| `crawler_os_distribution`                  | OS distribution of connected nodes.
+| `crawler_arch_distribution`                | Architecture distribution of the active nodes in the network.
+| `crawler_hosted_peers_distribution`        | Distribution of nodes that are hosted on non-residential networks.
+| `crawler_observed_rtt_distribution`        | Distribution of RTT between the crawler and the nodes in the network.
+| `crawler_observed_ip_distribution`         | Distribution of IPs hosting nodes in the network.
 
 # Migrate
 To move between database versions, use [go migrate]("https://github.com/golang-migrate/migrate/").
