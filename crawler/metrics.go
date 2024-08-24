@@ -16,46 +16,46 @@ var (
 	// List of metrics that we are going to export
 	ClientDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: moduleName,
-		Name:      "client_distribution",
-		Help:      "Number of peers using clients seen",
+		Name:      "observed_client_distribution",
+		Help:      "Number of nodes using the clients seen",
 	},
 		[]string{"client"},
 	)
 	VersionDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "observed_client_version_distribution",
-		Help:      "Number of peers from each of the clients versions",
+		Help:      "Number of nodes from each of the client's versions",
 	},
 		[]string{"client_version"},
 	)
 	GeoDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "geographical_distribution",
-		Help:      "Number of peers from each country",
+		Help:      "Number of nodes from each country",
 	},
 		[]string{"country"},
 	)
 	NodeDistribution = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "node_distribution",
-		Help:      "Number of peers from each of the crawled countries",
+		Help:      "Total number of nodes",
 	})
 	DeprecatedCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "deprecated_nodes",
-		Help:      "Total number of deprecated peers",
+		Help:      "Total number of deprecated nodes",
 	})
 	OsDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "os_distribution",
-		Help:      "OS distribution of connected peers",
+		Help:      "OS distribution of connected nodes",
 	},
 		[]string{"os"},
 	)
 	ArchDistribution = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: moduleName,
 		Name:      "arch_distribution",
-		Help:      "Architecture distribution of the active peers in the network",
+		Help:      "Architecture distribution of the active nodes in the network",
 	},
 		[]string{"arch"},
 	)
