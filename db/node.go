@@ -12,12 +12,10 @@ import (
 
 func (d *PostgresDBService) insertConnectionAttempt(attempt models.ConnectionAttempt) (query string, args []interface{}) {
 	query = `
-	UPDATE node_info SET
-		last_tried=$2,
-		error=$3,
-		deprecated=$4,
-		latency=$5
-	WHERE node_id=$1;
+		INSERT INTO conn_attempts
+		(node_id, tried_at, error, deprecated, latency)
+		VALUES
+		($1, $2, $3, $4, $5);
 	`
 	args = append(args, attempt.ID.String())
 	args = append(args, attempt.Timestamp)
