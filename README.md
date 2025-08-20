@@ -173,8 +173,20 @@ Contains more detailed information about the node's IP. The data gathered to pop
 | `proxy`                     | If the IP is associated with a proxy server.
 | `hosting`                   | If the IP is associated with a hosting provider.
 
+#### `conn_attempts`
+Contains information about connection attempts to nodes.
+
+| column                      | description |
+|-----------------------------|-------------|
+| `id`                        | Auto-incrementing identifier. It is the primary key of the table.
+| `node_id`                   | The node's ID. Foreign key referencing `node_info(node_id)`.
+| `tried_at`                  | Timestamp of when the attempt was made.
+| `error`                     | Error message if the connection attempt failed.
+| `deprecated`                | Whether the node was considered deprecated at the time of the attempt.
+| `latency`                   | Observed latency in milliseconds for the attempt.
+
 # Maintainer
-@cortze
+@MatheusFreixo
 
 # Notes
 Be careful with the input and output csv file names, since the `discv4` command will take `output.csv` by default.
